@@ -15,8 +15,13 @@ find_library(OPENVR_LIBRARIES
 )
 set(OPENVR_INCLUDE_DIR ${THIRDPARTY_DIR}/openvr/headers)
 
+## Generated GLAD OpenGL loader
+set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
+
+## Project Source files
 set(ALL_SRCS
 	app.rc
+  ${THIRDPARTY_DIR}/glad/src/glad.c
 	main.cc
 	resource.h
 	ovrly_app.h
@@ -26,15 +31,15 @@ set(ALL_SRCS
 	ovrly_handler_win.cc
 	platform.h
 )
-	
+
 # Logical target used to link the libcef library.
 ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
 
 # Determine the target output directory.
 SET_CEF_TARGET_OUT_DIR()
-	
+
 #include the subdirectory containing our libs
-include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR})
+include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
 
 #indicate the entry point for the executable
 add_executable (ovrly WIN32 ${ALL_SRCS})
