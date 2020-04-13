@@ -10,6 +10,7 @@
 #include "vrovrly.h"
 
 #include <sstream>
+#include <thread>
 #include "openvr.h"
 
 #include "appovrly.h"
@@ -51,8 +52,10 @@ namespace {
     */
   }
 
+  std::thread* vr_ = nullptr;
+
   void onBrowserProcess(process::Browser& browser) {
-    initVR();
+    vr_ = new std::thread(initVR);
   }
 
 } // module local
