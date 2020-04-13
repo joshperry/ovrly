@@ -45,13 +45,13 @@ class Render {
  *
  * Guaranteed to be dispatched before any browser process events are raised
  */
-static Event<Browser&> OnBrowser;
+extern Event<Browser&> OnBrowser;
 /**
  * Observable for notification when this is a render process
  *
  * Guaranteed to be dispatched before any render process events are raised
  */
-static Event<Render&> OnRender;
+extern Event<Render&> OnRender;
 
 /**
  * Create a new app and get an instance to its CefApp

@@ -295,7 +295,7 @@ void launchui() {
  * When the browser process handler instance is created
  * this is called to subscribe to process events
  */
-void onBrowser(process::Browser &browser) {
+void onBrowserProcess(process::Browser &browser) {
   /**
    * Launch the ovrly UI browser and run app startup logic
    * once the CEF browser UI thread context is up and running
@@ -309,7 +309,7 @@ void onBrowser(process::Browser &browser) {
 
 
 void registerHooks() {
-  process::OnBrowser.attach(onBrowser);
+  process::OnBrowser.attach(onBrowserProcess);
 }
 
 }} // module exports

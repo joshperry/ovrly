@@ -80,15 +80,17 @@ static CefRefPtr<CefMessageRouterBrowserSide> brouter_ = nullptr;
 static CefMessageRouterBrowserSide::Handler* bmsghandler = nullptr;
 
 // When the browser process is being created
-void onBrowserProcess(process::Browser& bp) {
+void onBrowserProcess(process::Browser& browser) {
   // create an instance of the browser side message router
   brouter_ = CefMessageRouterBrowserSide::Create(getConfig());
 
-  // and handler
-  bmsghandler = new MsgHandler();
-  // Sub the handler to the router
-  brouter_->AddHandler(bmsghandler, true);
-  // TODO: Hook up the message handler
+  // Set up the handler when the context is done setting up
+  browser.SubOnContextInitialized.attach([]() {
+    bmsghandler = new MsgHandler();
+    // Sub the handler to the router
+    brouter_->AddHandler(bmsghandler, true);
+    // TODO: Hook up the message handler
+  });
 }
 
 void onWebClient(web::Client& c) {

@@ -83,13 +83,14 @@ namespace ovrly{ namespace web{
     };
   } // module local
 
-  Event<Client&> OnClientCreated;
+  
+  Event<Client&> OnClient;
 
   CefRefPtr<CefClient> Create() {
     CefRefPtr<ClientHandler> handler = new ClientHandler();
 
     // Notify observers
-    OnClientCreated(*handler);
+    OnClient(*handler);
 
     return new WebClient(handler);
   }

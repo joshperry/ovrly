@@ -24,12 +24,16 @@ extern "C"
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
 
+  OutputDebugString(L"OVRLY Composing");
+
   /**
    * App Module Composition
    */
   ovrly::js::registerHooks();
-  ovrly::ui::registerHooks();
   ovrly::vr::registerHooks();
+  ovrly::ui::registerHooks();
+
+  OutputDebugString(L"OVRLY Now well-composed");
 
   /**
    * Get the CEF process initialized and executing ASAP
@@ -42,12 +46,16 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   // Create app instance to handle CEF events
   CefRefPtr<CefApp> app(ovrly::process::Create());
 
+  OutputDebugString(L"OVRLY Executing CEF");
+
   // Check if this is a child-process reentrant dispatch
   int exit_code = CefExecuteProcess(main_args, app, nullptr);
   if (exit_code >= 0) {
     // We were a child process which completed, gbye!
     return exit_code;
   }
+
+  OutputDebugString(L"OVRLY Main Browser");
 
   /*
    * Congratulations, we are the singleton browser process!

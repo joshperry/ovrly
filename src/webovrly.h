@@ -36,7 +36,7 @@ class Client {
  *
  * Guaranteed to be dispatched before any client events are raised
  */
-static Event<Client&> OnClient;
+extern Event<Client&> OnClient;
 
 /**
  * Create a new web client and get a reference to its `CefClient`

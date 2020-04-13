@@ -108,6 +108,9 @@ class App : public CefApp {
 
 }  // module local
 
+Event<Browser&> OnBrowser;
+Event<Render&> OnRender;
+
 CefRefPtr<CefApp> Create() {
   return new App();
 }
