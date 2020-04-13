@@ -46,6 +46,25 @@ There will be single-source events from openvr and other modules which need to b
 Not every context will be interested in every event, so a method is needed for subscribing and then dispatching specific
 events raised in native code.
 
+## C++ Architecture
+
+Because cef wraps chromium, the logic necessarily is split between processes;
+architecturally, cef implements an event-driven interface.
+
+The ovrly architecture is similarly implemented, with individual modules exposing
+events that others can observe, with some modules implementing a `registerHooks()` function
+that are used first-thing at app start to compose the the module event listeners.
+
+Conventionally, primary modules in ovrly are in files that end with `ovrly` (e.g. uiovrly.cc, or vrovrly.h).
+
+For example, any module that needs to run in the ovrly browser process would subscribe
+to the `process::OnBrowser` event to be notified when the browser process is about to
+come up. The `process::OnBrowser` observable also delivers a `process::Browser` object which
+has additional process lifetime events that can be subscribed to (e.g. `OnContextInitialized`).
+
+There is also a `process::OnRender` event that allows code that runs in the render processes
+to be executed at the proper time, among a number of other events across different modules.
+
 ## Browser to Overlay Rendering
 
 The cef lib is in charge of creating the composited view of the off-screen browser, and it is OpenVR's job to render
