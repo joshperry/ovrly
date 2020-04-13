@@ -110,7 +110,7 @@
 # Global setup.
 #
 
-cmake_minimum_required(VERSION 2.8.12.1)
+cmake_minimum_required(VERSION 3.10.0.0)
 
 # Only generate Debug and Release configuration types.
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
@@ -195,12 +195,12 @@ set(
     CMAKE_RUNTIME_OUTPUT_DIRECTORY
     ${CMAKE_HOME_DIRECTORY}/bin
     )
-	
+
 set(
     CMAKE_LIBRARY_OUTPUT_DIRECTORY
     ${CMAKE_HOME_DIRECTORY}/lib
     )
-	
+
 set(
     TARGET_OUTPUT_DIRECTORY
     ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIGURATION>

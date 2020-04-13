@@ -21,15 +21,21 @@ set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
 ## Project Source files
 set(ALL_SRCS
 	app.rc
-  ${THIRDPARTY_DIR}/glad/src/glad.c
+	appovrly.h
+	appovrly.cc
+  events.h
+  jsovrly.h
+  jsovrly.cc
 	main.cc
-	resource.h
-	ovrly_app.h
-	ovrly_app.cc
-	ovrly_handler.h
-	ovrly_handler.cc
-	ovrly_handler_win.cc
 	platform.h
+	resource.h
+	uiovrly.h
+	uiovrly.cc
+	uiovrly_win.cc
+  vrovrly.h
+  vrovrly.cc
+  webovrly.h
+  webovrly.cc
 )
 
 # Logical target used to link the libcef library.
@@ -44,6 +50,10 @@ include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
 #indicate the entry point for the executable
 add_executable (ovrly WIN32 ${ALL_SRCS})
 SET_EXECUTABLE_TARGET_PROPERTIES(ovrly)
+
+## Set C++17 standards mode
+set_property(TARGET ovrly PROPERTY CXX_STANDARD 17)
+set_property(TARGET ovrly PROPERTY CXX_STANDARD_REQUIRED ON)
 
 source_group("src" FILES ${ALL_SRCS})
 

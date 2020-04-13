@@ -3,13 +3,28 @@
 The purpose of this project is to compose [chromium embedded](https://bitbucket.org/chromiumembedded/cef/src/master/)
 with [OpenVR](https://github.com/ValveSoftware/openvr) to allow creation of overlays using primarily web technologies.
 
+Besides using cef to render the content of overlays placed in the VR world, an OS rendered browser instance will
+also be used as the primary UI with its javascript context being used for as much application logic as possible.
+
 ## Javascript API
 
 To facilitate ease of development and updates it is desirable to have as much logic implemented in javascript as possible.
 While logic in the input->render loop is time sensitive and must be implemented in native code, a large majority is not.
 
+    Some experiments need to be conducted as to what kind of latency is introduced by shifting logic into js.
+    The primary use-case which may need to be done in native code, but possibly could be done in js, is what
+    effectively could be considered the ovrly "window manager".
+
+    Will js be able to track input controller pose and button updates quickly enough to detect intersections
+    and interactions, execute logic, and then update overlay state with low enough latency that the
+    interaction experience will be comfortable?
+
 All javascript functionality will be exposed beneath the `window.ovrly` object, its existence can be used by
 code to detect it is running in the ovrly runtime environment.
+
+*ovrly.initialized* (bool): Whether everything was successfully initialized.
+If this is false, only the string property `ovrly.error` will exist with a description of the init error.
+The js context in overlay browser views will never be created if ovrly was not able to properly be initialized.
 
 ### Overlay
 
@@ -24,6 +39,12 @@ Information about the VR environment is available through the OpenVR api. An idi
 api is exposed under `ovrly.vr`.
 
 TODO: Hash out the openvr JS interface
+
+### Native to JS Event Dispatch
+
+There will be single-source events from openvr and other modules which need to be dispatched to 1..n javascript contexts.
+Not every context will be interested in every event, so a method is needed for subscribing and then dispatching specific
+events raised in native code.
 
 ## Browser to Overlay Rendering
 
@@ -59,4 +80,78 @@ When the [new shared texture patch](https://bitbucket.org/chromiumembedded/cef/p
 is merged into cef, ovrly will be able to mediate rendering pages into OpenVR at native VR framerates (if necessary for the overlay content)
 by sharing a texture between the cef and openvr rendering pipelines.
 
-Using this method, the framerate is driven by ovrly as it tells cef when it should render each frame with `SendExternalBeginFrame`. 
+Using this method, the framerate is driven by ovrly as it tells cef when it should render each frame with `SendExternalBeginFrame`.
+
+
+## CEF Notes
+
+As cef is a wrapper over chromium, it also shares chromiums multi-process design.
+
+In a cef app there is one primary browser process with multiple threads and is generally responsible for
+rendering to the UI, processing OS input events, doing disk and network IO, and handling general orchestration
+of browser frame operations. This is the application startup process.
+
+Each browser frame renders and executes javascript inside of a child process called the render process.
+
+### Process Dispatch
+
+When cef needs to fork a new child process, it executes its own executable again but with a special cli flag.
+When the cef init code sees this flag, it will internally coopt the startup thread and only return when
+the render process shuts down.
+
+When the init function returns in this case, it returns `-1` so that the code knows this was a terminating
+child render process and can `exit()` instead of setting up the browser process singleton.
+
+As little work as possible should be done in the process before cef init function is called to
+minimize render process load time.
+
+### CefApp
+
+Used by cef to find handlers for the browser process and render processes.
+These handlers are primarily for lifetime events, threads, IPC, and V8 contexts of these processes.
+
+### CefBrowserProcessHandler
+
+This code runs in the browser process and is a singleton.
+
+*Important Handlers*
+
+*OnContextCreated:* Called when the browser process is bootstrapped and cef is fully ready to do things.
+This is a good place to trigger initial browser display and loading other modules that require access to a ready-to-go cef.
+
+### CefRenderProcessHandler
+
+This code runs in the render process and is a singleton in its process.
+
+*Important Handlers*
+
+- *OnProcesMessageReceived:* When a render process gets a message from another process.
+
+### CefClient
+
+Used by cef to find handlers for each browser frame.
+
+This is effectively an interprocess proxy for code in the browser process to interact with code
+for the browser frame and v8 context running in the render processes.
+
+These handlers are for communicating things like display, dialog, download, render,
+request, focus, find, drag-n-drop, and loading events.
+
+This code runs in the browser process and each browser can be created a unique instance of
+this and/or each handler classes.
+
+*Important Handlers*
+
+- *OnProcesMessageReceived:* ? Is this when a render process sends the browser process a message or is it a
+browser process mirror of the function with the same name on `CefRenderProcessHandler`?
+
+### CefRenderHandler
+
+Handlers for events related to rendering happening on the render thread for a particular browser instance.
+
+This is a primary integration point for hooking render data when using cef to render browser views off-screen.
+
+*Important Handlers*
+
+- *OnPaint:* Provides a pixel buffer of the rendered browser view to the browser process each time the render process finishes a render.
+- *OnAcceleratedPaint:* When using shared textures (currently broken) provides notification to the browser process after the render process updates the texture.
