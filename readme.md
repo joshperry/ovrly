@@ -65,6 +65,8 @@ has additional process lifetime events that can be subscribed to (e.g. `OnContex
 There is also a `process::OnRender` event that allows code that runs in the render processes
 to be executed at the proper time, among a number of other events across different modules.
 
+Module local code is wrapped in an anonymous namespace to prevent symbol exports.
+
 ## Browser to Overlay Rendering
 
 The cef lib is in charge of creating the composited view of the off-screen browser, and it is OpenVR's job to render

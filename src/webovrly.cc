@@ -10,8 +10,9 @@
 
 #include <functional>
 
-// Module exports
+
 namespace ovrly{ namespace web{
+
   // Module local
   namespace {
 
@@ -83,16 +84,19 @@ namespace ovrly{ namespace web{
     };
   } // module local
 
+
+ /*
+ * Module exports
+ */
   
-  Event<Client&> OnClient;
+Event<Client&> OnClient;
 
-  CefRefPtr<CefClient> Create() {
-    CefRefPtr<ClientHandler> handler = new ClientHandler();
+CefRefPtr<CefClient> Create() {
+  CefRefPtr<ClientHandler> handler = new ClientHandler();
 
-    // Notify observers
-    OnClient(*handler);
+  OnClient(*handler);
 
-    return new WebClient(handler);
-  }
+  return new WebClient(handler);
+}
 
 }} // module exports

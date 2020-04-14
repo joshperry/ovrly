@@ -26,18 +26,16 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
 
   OutputDebugString(L"OVRLY Composing");
 
-  /**
-   * App Module Composition
-   */
+  /* App Module Composition */
   ovrly::js::registerHooks();
   ovrly::vr::registerHooks();
   ovrly::ui::registerHooks();
 
   OutputDebugString(L"OVRLY Now well-composed");
 
-  /**
-   * Get the CEF process initialized and executing ASAP
-   */
+
+  /* Get the CEF process initialized and executing ASAP */
+
   CefEnableHighDPISupport();
 
   // Use CEF to parse command-line arguments
@@ -57,9 +55,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
 
   OutputDebugString(L"OVRLY Main Browser");
 
-  /*
-   * Congratulations, we are the singleton browser process!
-   */
+
+  /* Congratulations, we are the singleton browser process! */
+
   // Setup CEF initialization settings
   CefSettings settings;
   settings.no_sandbox = true;

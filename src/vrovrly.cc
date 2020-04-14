@@ -17,8 +17,9 @@
 
 namespace ovr = ::vr;
 
-// Module exports
+
 namespace ovrly{ namespace vr{
+
 // Module local
 namespace {
 
@@ -56,9 +57,15 @@ namespace {
 
   void onBrowserProcess(process::Browser& browser) {
     vr_ = new std::thread(initVR);
+    // TODO: Implement VR event dispatch loop
   }
 
 } // module local
+
+
+/*
+ * Module exports
+ */
 
 void registerHooks() {
   // Register for notification when this is a browser process

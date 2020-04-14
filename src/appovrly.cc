@@ -20,6 +20,7 @@
 #include "uiovrly.h"
 #include "jsovrly.h"
 
+
 namespace ovrly { namespace process {
 
 // Module locals
@@ -108,6 +109,11 @@ class App : public CefApp {
 
 }  // module local
 
+
+/*
+ * Module exports
+ */
+
 Event<Browser&> OnBrowser;
 Event<Render&> OnRender;
 
@@ -115,4 +121,4 @@ CefRefPtr<CefApp> Create() {
   return new App();
 }
 
-}} // module export
+}} // module exports

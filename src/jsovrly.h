@@ -15,15 +15,12 @@
  *
  * This is a singleton module since only one is created per process.
  *
- * Provides hook functions to call from `CefRenderProcessHandler` functions that
- * injects native-to-js objects in into each v8 context and sets up and owns the
+ * Injects native-to-js objects in into each v8 context and sets up and owns the
  * CefMessageRouterRendererSide of the [message router]
  * (https://bitbucket.org/chromiumembedded/cef/src/master/include/wrapper/cef_message_router.h).
  *
- * Provides hook functions to call from `CefBrowserProcessHandler functions that
- * sets up and owns the browser process side message router.
- *
- * The browser side of the router is defined in the `CefBrowserProcessHandler`.
+ * Sets up and owns the browser process side message router and handles mapping event
+ * subscriptions in js to native event subscriptions.
  */
 namespace ovrly{ namespace js{
   /**

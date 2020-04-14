@@ -12,7 +12,16 @@
 
 #include <list>
 
+#include "webovrly.h"
+
 namespace ovrly{ namespace ui{
+  /**
+   * Observable for notification when the UI web client is created
+   *
+   * Guaranteed to be dispatched before any client events are raised
+   */
+  extern Event<web::Client&> OnClient;
+
   /**
    * Registers to launch the ovrly UI once the browser process is initialized
    */
