@@ -8,16 +8,9 @@
  */
 #pragma once
 
-#include "events.h"
-
-namespace ovrly { namespace vr {
-
-  extern Event<> OnReady;
-
+namespace ovrly{ namespace mgr{
   /**
-   * Registers to launch the vr event thread once the browser process is initialized
+   * Registers to launch the ovrly UI once the browser process is initialized
    */
   void registerHooks();
-
 }} // namespaces
-

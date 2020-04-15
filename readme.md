@@ -40,11 +40,29 @@ api is exposed under `ovrly.vr`.
 
 TODO: Hash out the openvr JS interface
 
+### Facade
+
+Owing to the archaic nature of the native interface exposed by v8, the API exported from native code into the
+js context is rudimentary. To make this API more idiomatic javascript, a facade will sit on top
+of the native exports to bridge that gap.
+
 ### Native to JS Event Dispatch
 
 There will be single-source events from openvr and other modules which need to be dispatched to 1..n javascript contexts.
 Not every context will be interested in every event, so a method is needed for subscribing and then dispatching specific
 events raised in native code.
+
+The cef lib includes a [message router](https://bitbucket.org/chromiumembedded/cef/src/master/include/wrapper/cef_message_router.h?at=master)
+that's intended specifically for this purpose.
+A message router is created in each render process, and one is created in
+the browser process. The browser-process side router will watch for subscriptions from the js facade
+and handle the required bookkeeping to deliver native events for the requested subscriptions.
+
+The native code will keep as little state as possible while the javascript facade that interacts
+with the native exports and message router will be in charge of keeping most state and updating
+it in response to event messages from the router.
+
+The message router js-side functions are exposed as `ovrlyNativeQuery` and `ovrlyNativeQueryCancel`.
 
 ## C++ Architecture
 
@@ -64,6 +82,9 @@ has additional process lifetime events that can be subscribed to (e.g. `OnContex
 
 There is also a `process::OnRender` event that allows code that runs in the render processes
 to be executed at the proper time, among a number of other events across different modules.
+
+Because the observable system is meant for composing application code there is no facility
+made for removing event subscriptions.
 
 Module local code is wrapped in an anonymous namespace to prevent symbol exports.
 

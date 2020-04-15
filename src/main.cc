@@ -9,8 +9,9 @@
 #include "platform.h"
 
 #include "appovrly.h"
-#include "uiovrly.h"
 #include "jsovrly.h"
+#include "mgrovrly.h"
+#include "uiovrly.h"
 #include "vrovrly.h"
 
 /**
@@ -30,6 +31,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   ovrly::js::registerHooks();
   ovrly::vr::registerHooks();
   ovrly::ui::registerHooks();
+  ovrly::mgr::registerHooks();
 
   OutputDebugString(L"OVRLY Now well-composed");
 

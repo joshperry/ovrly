@@ -25,14 +25,17 @@ namespace {
 
   void initVR() {
     OutputDebugString(L"OPENVR INITIALIZING");
-    ovr::HmdError m_eLastHmdError = ovr::VRInitError_None;
-    ovr::IVRSystem* pVRSystem = ovr::VR_Init(&m_eLastHmdError, ovr::VRApplication_Overlay);
+    ovr::HmdError hmderr = ovr::VRInitError_None;
+    ovr::IVRSystem* pVRSystem = ovr::VR_Init(&hmderr, ovr::VRApplication_Overlay);
 
-    if (m_eLastHmdError != ovr::VRInitError_None) {
-      OutputDebugString(L"OPENVR FAIL Init");
-    }
-    else {
+    if (hmderr != ovr::VRInitError_None) {
+      std::wstringstream ss;
+      ss << L"OPENVR FAIL Init: " << hmderr;
+      OutputDebugString(ss.str().c_str());
+    } else {
       OutputDebugString(L"OPENVR Initialized!");
+
+      OnReady();
 
       char buf[128];
       ovr::TrackedPropertyError err;
@@ -56,7 +59,10 @@ namespace {
   std::thread* vr_ = nullptr;
 
   void onBrowserProcess(process::Browser& browser) {
-    vr_ = new std::thread(initVR);
+    browser.SubOnContextInitialized.attach([]() {
+      initVR();
+    });
+    //vr_ = new std::thread(initVR);
     // TODO: Implement VR event dispatch loop
   }
 
@@ -66,6 +72,8 @@ namespace {
 /*
  * Module exports
  */
+
+Event<> OnReady;
 
 void registerHooks() {
   // Register for notification when this is a browser process

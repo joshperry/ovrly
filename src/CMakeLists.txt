@@ -27,6 +27,8 @@ set(ALL_SRCS
   jsovrly.h
   jsovrly.cc
 	main.cc
+  mgrovrly.h
+  mgrovrly.cc
 	platform.h
 	resource.h
 	uiovrly.h
