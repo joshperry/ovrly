@@ -14,6 +14,18 @@
 
 #include "webovrly.h"
 
+/**
+ * The purpose of this module is to manage the lifetime and interactions
+ * with the desktop-visible browser used for presenting the ovrly UI.
+ *
+ * It handles interfacing with the OS to create the window that the browser
+ * instance targets for rendering, and feeds other OS events into it for handling
+ * interactions.
+ *
+ * This listens to the app module to be notified when the browser process
+ * is executing so that it can launch the UI render process.
+ */
+
 namespace ovrly{ namespace ui{
   /**
    * Observable for notification when the UI web client is created

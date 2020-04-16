@@ -7,13 +7,16 @@
  * the Free Software Foundation, version 3.
  */
 #pragma once
-/**
- *
- */
 
 #include "include/cef_app.h"
 
 #include "events.h"
+
+/**
+ * This module is in charge of mediating the chromium browser and render
+ * processes startup and producing notifications to other modules so that they can
+ * run as needed for the respective process type.
+ */
 
 namespace ovrly{ namespace process{
 

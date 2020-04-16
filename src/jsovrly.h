@@ -9,19 +9,22 @@
 #pragma once
 
 /**
- * The purpose of this module is to define the native-to-js interface and
+ * The purpose of this module is to define the native-to-js API and
  * the logic to do cross-process pub-sub to dispatch events from native code
  * running in the browser process to js code running in any number of v8 contexts.
  *
- * This is a singleton module since only one is created per process.
- *
- * Injects native-to-js objects in into each v8 context and sets up and owns the
- * CefMessageRouterRendererSide of the [message router]
+ * It injects native-to-js objects in into each v8 context in the render processes
+ * and sets up and owns the `CefMessageRouterRendererSide` of the [message router]
  * (https://bitbucket.org/chromiumembedded/cef/src/master/include/wrapper/cef_message_router.h).
  *
- * Sets up and owns the browser process side message router and handles mapping event
- * subscriptions in js to native event subscriptions.
+ * It sets up and owns the `CefMessageRouterBrowserSide` message router for
+ * render processes, handles mapping event subscriptions in js to native event
+ * subscriptions, and dispatches native events into js for those subcriptions.
+ *
+ * The vr event loop runs in its own thread, but events are be dispatched on
+ * the main UI thread.
  */
+
 namespace ovrly{ namespace js{
   /**
    * Register javascript composition hooks

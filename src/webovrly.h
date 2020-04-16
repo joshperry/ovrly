@@ -12,6 +12,18 @@
 
 #include "events.h"
 
+/**
+ * The purpose of this module is to manage the browser and rendering path
+ * for web-based overlays by taking textures from the browser and committing
+ * them to the vr overlay API for compositing.
+ *
+ * It detects changes made to the size and aspect ratio of the overlay and
+ * reconfigures the browser instance to produce the correct textures for new metrics.
+ *
+ * It also handles hooks virtual mouse inputs from the vr API and injects them into
+ * the browser instance to support interacting with the overlay.
+ */
+
 namespace ovrly{ namespace web{
 
 /**

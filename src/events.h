@@ -35,7 +35,7 @@ class Event {
 };
 
 /**
- * An event functor that sequentiall calls a chain of boolean returning filter
+ * An event functor that sequentially calls a chain of boolean returning filter
  * functions until one signals it handled the event by returning true.
  *
  * Returns true if a filter in the chain handled the event, false otherwise.
