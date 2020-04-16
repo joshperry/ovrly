@@ -385,7 +385,7 @@ namespace ovrly{ namespace web{
             }
 
             if(vroverlay_ != vr::k_ulOverlayHandleInvalid) {
-              ovrly->SetOverlayWidthInMeters(vroverlay_, 0.5f);
+              ovrly->SetOverlayWidthInMeters(vroverlay_, 1.5f);
               ovrly->ShowOverlay(vroverlay_);
             }
           } else {
@@ -427,10 +427,9 @@ namespace ovrly{ namespace web{
             const CefRenderHandler::RectList& dirtyRects, const void* buffer, int width, int height ) override
         {
           if(vroverlay_ == vr::k_ulOverlayHandleInvalid) {
+            OutputDebugString(L"OVRLY OnPainted no overlay");
             return;
           }
-
-          OutputDebugString(L"OVRLY OnPainted");
 
           uint32_t stride = width * 4;
 
@@ -459,11 +458,6 @@ namespace ovrly{ namespace web{
               stride,
               texture_->height());
 
-            vrtexture_ = new vr::Texture_t{
-              texture_->texture_.get(),
-              vr::TextureType_DirectX,
-              vr::ColorSpace_Gamma
-            };
             vr::VROverlay()->SetOverlayTexture(vroverlay_, vrtexture_);
           }
 
@@ -534,13 +528,13 @@ CefRefPtr<CefClient> Create() {
 
   // Run the rendering at 15fps for now
   CefBrowserSettings settings;
-  settings.windowless_frame_rate = 15;
+  settings.windowless_frame_rate = 60;
 
 
   OutputDebugString(L"OVRLY Creating Web Overlay");
 
   // Rez the actual chromium browser
-  CefBrowserHost::CreateBrowser(window_info, client, "https://dumb.com", settings, nullptr, nullptr);
+  CefBrowserHost::CreateBrowser(window_info, client, "https://webglsamples.org/aquarium/aquarium.html", settings, nullptr, nullptr);
 
   return client;
 }
