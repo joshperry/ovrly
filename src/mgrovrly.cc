@@ -8,6 +8,7 @@
  */
 #include "appovrly.h"
 
+#include "ovrly.h"
 #include "vrovrly.h"
 #include "webovrly.h"
 
@@ -16,26 +17,13 @@ namespace ovrly{ namespace mgr{
 // Module local
 namespace {
 
-  bool cefready = false;
-  bool vrready = false;
-
-  void onBrowserProcess(process::Browser &browser) {
-    /*
-     * Launch the overlays once the UI is up and running
-     */
-    browser.SubOnContextInitialized.attach([]() {
-      cefready = true;
-      if(vrready) {
-        web::Create();
-      }
-    });
-  }
+  std::vector<std::unique_ptr<vr::Overlay>> overlays_;
 
   void onVRReady() {
-    vrready = true;
-    if(cefready) {
-      web::Create();
-    }
+    overlays_.push_back(web::Create(
+        mathfu::vec2(1.5f, 1.33333333f),
+        "https://webglsamples.org/aquarium/aquarium.html"
+    ));
   }
 
 }  // module local
@@ -46,9 +34,7 @@ namespace {
  */
 
 void registerHooks() {
-  process::OnBrowser.attach(onBrowserProcess);
   vr::OnReady.attach(onVRReady);
 }
 
 }} // module exports
-

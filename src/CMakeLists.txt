@@ -15,6 +15,11 @@ find_library(OPENVR_LIBRARIES
 )
 set(OPENVR_INCLUDE_DIR ${THIRDPARTY_DIR}/openvr/headers)
 
+## MathFU Library with test and benchmark builds disabled
+set(mathfu_build_benchmarks OFF CACHE BOOL "")
+set(mathfu_build_tests OFF CACHE BOOL "")
+add_subdirectory($ENV{MATHFU_ROOT} mathfu)
+
 ## Generated GLAD OpenGL loader
 set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
 
@@ -23,13 +28,18 @@ set(ALL_SRCS
 	app.rc
 	appovrly.h
 	appovrly.cc
+  d3d.h
+  d3d.cc
   events.h
   jsovrly.h
   jsovrly.cc
 	main.cc
   mgrovrly.h
   mgrovrly.cc
+  ovrly.h
+  ovrly.cc
 	platform.h
+  ranges.hpp
 	resource.h
 	uiovrly.h
 	uiovrly.cc
@@ -52,6 +62,9 @@ include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
 #indicate the entry point for the executable
 add_executable (ovrly WIN32 ${ALL_SRCS})
 SET_EXECUTABLE_TARGET_PROPERTIES(ovrly)
+
+# Configure flags for referencing mathfu
+mathfu_configure_flags(ovrly)
 
 ## Set C++17 standards mode
 set_property(TARGET ovrly PROPERTY CXX_STANDARD 17)

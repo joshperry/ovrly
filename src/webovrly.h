@@ -11,6 +11,7 @@
 #include "include/cef_client.h"
 
 #include "events.h"
+#include "vrovrly.h"
 
 /**
  * The purpose of this module is to manage the browser and rendering path
@@ -53,6 +54,6 @@ extern Event<Client&> OnClient;
 /**
  * Create a new web client and get a reference to its `CefClient`
  */
-CefRefPtr<CefClient> Create();
+std::unique_ptr<vr::Overlay> Create(mathfu::vec2 size, std::string const &url);
 
 }} // namespaces
