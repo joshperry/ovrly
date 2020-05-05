@@ -1,10 +1,49 @@
 # ovrly
 
-The purpose of this project is to compose [chromium embedded](https://bitbucket.org/chromiumembedded/cef/src/master/)
-with [OpenVR](https://github.com/ValveSoftware/openvr) to allow creation of overlays using primarily web technologies.
+    ovrly manages vr overlays and runs browser overlies
 
-Besides using cef to render the content of overlays placed in the VR world, an OS rendered browser instance will
-also be used as the primary UI with its javascript context being used for as much application logic as possible.
+The purpose of this project is to compose [chromium embedded](https://bitbucket.org/chromiumembedded/cef/src/master/)
+with [OpenVR](https://github.com/ValveSoftware/openvr) to allow rapid creation of, and experimentation with,
+VR overlays whose logic and rendering are handled by web technologies.
+
+Besides using cef to create the content of overlays placed in the VR world, an OS-windowed browser instance
+will be shown as the primary desktop UI and hosts the root context where the ovrly core javascript-side
+logic is executed.
+
+## ovrlies
+
+    Extensibility points should be rich and experimentally compelling.
+
+An ovrlie is an "app" for ovrly.
+
+The interface for integrating a custom ovrlie is meant to be simple while supporting the widest possible
+range of target development and runtime environments. Because ovrly employs a fully-featured browser runtime
+and HTTP server libraries are ubiquitous, it makes sense to use HTTP for content delivery and IPC.
+
+Each ovrlie implementation must provide an http server executable (written in any OS executable format)
+with a `--port` argument.
+
+When loading an overlie, the server process is started as a child daemon and passed a random available local
+highport, a root browser context is then spun up and pointed at `http://localhost:<randomport>/`.
+This URL should serve the HTML/JS/CSS assets that implement the ovrlie client logic and UI.
+
+- TODO: Do we need to synchronize browser load with the server process startup somehow?
+
+The content area of the root browser context is rendered into a root VR overlay that is also created
+at ovrlie start time, the ovrly javascript APIs are bound in the browser javascript context where
+code can manipulate them at will.
+
+A primary benefit offered by the daemon model is that overlies can directly access OS resources
+that are not available through the ovrly browser environment. This access can be shared with the browser
+context via HTTP requests or websockets back to the daemon.
+
+- TODO: Expose desktop UI for ovrlies?
+
+- TODO: Securing access to the server daemon
+- TODO: Consider security and other aspects related to loading ovrlies directly from public https URIs
+  - Any ovrlie without the need for a daemon could deliver assets over the internet.
+  - (pro) Zero install or update
+  - (con) Scripts loaded from the internet have access to the ovrly javascript API
 
 ## Javascript API
 
@@ -19,24 +58,39 @@ While logic in the input->render loop is time sensitive and must be implemented 
     and interactions, execute logic, and then update overlay state with low enough latency that the
     interaction experience will be comfortable?
 
-All javascript functionality will be exposed beneath the `window.ovrly` object, its existence can be used by
+All javascript interface will be exposed beneath the global `ovrly` object, its existence can be used by
 code to detect it is running in the ovrly runtime environment.
 
 *ovrly.initialized* (bool): Whether everything was successfully initialized.
 If this is false, only the string property `ovrly.error` will exist with a description of the init error.
-The js context in overlay browser views will never be created if ovrly was not able to properly be initialized.
 
 ### Overlay
 
 The primary purpose of ovrly is to expose and manage one or more overlays into the OpenVR environment.
-The `ovrly.Overlay` constructor function creates just such an overlay and allows access to read and modify its properties.
+
+*ovrly.Overlay(options)*: Constructor function to create an overlay.
+
+```js
+{
+  id: 'is.invr.ovrly-main',
+  name: 'ovrly main',
+  matrix: [3][4],
+}
+```
+
+*ovrly.root* (Overlay): The root overlay instance created for an overlie. Does not exist in the ovrly root js context.
 
 TODO: Hash out the overlay JS interface
 
 ### OpenVR
 
-Information about the VR environment is available through the OpenVR api. An idiomatic javascript version of this
-api is exposed under `ovrly.vr`.
+
+Information about the VR environment is available through the OpenVR API which is bound globally in
+each js context at `ovrly.vr`.
+
+- TODO: chaperone bounds/playarea info
+
+- TODO: tracked device info
 
 TODO: Hash out the openvr JS interface
 
@@ -66,27 +120,41 @@ The message router js-side functions are exposed as `ovrlyNativeQuery` and `ovrl
 
 ## C++ Architecture
 
-Because cef wraps chromium, the logic necessarily is split between processes;
-architecturally, cef implements an event-driven interface.
+The ovrly C++ architecture is primarily wrappers and specializations interconnected
+via event dispatch.
 
-The ovrly architecture is similarly implemented, with individual modules exposing
-events that others can observe, with some modules implementing a `registerHooks()` function
-that are used first-thing at app start to compose the the module event listeners.
+A bulk of the modules in the project expose an interface which calls into the OpenVR or cef
+dependency libraries. The modules are organized primarily in a data-oriented fashion.
 
-Conventionally, primary modules in ovrly are in files that end with `ovrly` (e.g. uiovrly.cc, or vrovrly.h).
+The API exposed by each module, which facilitate interaction between the multiple modules, each
+have both a functional interface and an event-driven interface. Event subscription is accomplished
+with Observables to which many target listeners can subscribe.
 
-For example, any module that needs to run in the ovrly browser process would subscribe
-to the `process::OnBrowser` event to be notified when the browser process is about to
-come up. The `process::OnBrowser` observable also delivers a `process::Browser` object which
-has additional process lifetime events that can be subscribed to (e.g. `OnContextInitialized`).
+### CEF integration
 
-There is also a `process::OnRender` event that allows code that runs in the render processes
-to be executed at the proper time, among a number of other events across different modules.
+Because cef wraps chromium to act as the ovrly user interface, the logic necessarily
+is split between processes; architecturally, cef exposes an event-driven interface to
+which a single handler can be provided from user code.
 
-Because the observable system is meant for composing application code there is no facility
-made for removing event subscriptions.
+When interfacing with cef, a common pattern is used for to map the cef handler interface to an ovrly Observable interface.
 
-Module local code is wrapped in an anonymous namespace to prevent symbol exports.
+As an example of using the Observable module interface, any module that needs to run in the cef
+browser process would subscribe to the `process::OnBrowser` event to be notified,
+in the browser process, when the it is about to come up. This observable also delivers a
+`process::Browser` object which has additional process lifetime events that can be observed
+(e.g. `OnContextInitialized`).
+
+There is also a `process::OnRender` event for code that needs to run in the render processes
+startup. These are found in the app module and are only a few among a number of other events
+across different modules.
+
+### Conventions
+
+- Some modules expose a `registerHooks()` function that should be called at app start to allow the module to setup inter-module event listeners.
+- Primary modules in ovrly are in files that end with `ovrly` (e.g. uiovrly.cc, or vrovrly.h).
+- Because the observable system is meant for composing application code there is no facility made for removing event subscriptions.
+- Module local code is wrapped in an anonymous namespace to prevent symbol exports.
+
 
 ## Browser to Overlay Rendering
 
@@ -122,7 +190,7 @@ When the [new shared texture patch](https://bitbucket.org/chromiumembedded/cef/p
 is merged into cef, ovrly will be able to mediate rendering pages into OpenVR at native VR framerates (if necessary for the overlay content)
 by sharing a texture between the cef and openvr rendering pipelines.
 
-Using this method, the framerate is driven by ovrly as it tells cef when it should render each frame with `SendExternalBeginFrame`.
+    Using this method will allow ovrly to take over the main rendering main loop by telling cef when it should render each frame with `SendExternalBeginFrame`.
 
 
 ## CEF Notes
