@@ -13,6 +13,7 @@
 #include "mgrovrly.h"
 #include "uiovrly.h"
 #include "vrovrly.h"
+#include "logging.h"
 
 /**
  * Flag selection of high-performance gpu mode for NV and AMD hybrid setups
@@ -24,8 +25,12 @@ extern "C"
 }
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
+  // Initialize the logging lib
+  ovrly::logging::init();
 
-  OutputDebugString(L"OVRLY Composing");
+  ovrly::logger::info("OVRLY STARTING");
+
+  ovrly::logger::debug("(main) Composing");
 
   /* App Module Composition */
   ovrly::js::registerHooks();
@@ -33,8 +38,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   ovrly::ui::registerHooks();
   ovrly::mgr::registerHooks();
 
-  OutputDebugString(L"OVRLY Now well-composed");
+  ovrly::logger::debug("(main) Now well-composed");
 
+  ovrly::logger::trace("OVRLY TRACE TEST!!");
 
   /* Get the CEF process initialized and executing ASAP */
 
@@ -46,7 +52,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
   // Create app instance to handle CEF events
   CefRefPtr<CefApp> app(ovrly::process::Create());
 
-  OutputDebugString(L"OVRLY Executing CEF");
+  ovrly::logger::info("OVRLY starting webtech engine");
 
   // Check if this is a child-process reentrant dispatch
   int exit_code = CefExecuteProcess(main_args, app, nullptr);
@@ -55,8 +61,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
     return exit_code;
   }
 
-  OutputDebugString(L"OVRLY Main Browser");
-
+  ovrly::logger::debug("(main) Main Browser");
 
   /* Congratulations, we are the singleton browser process! */
 

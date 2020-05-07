@@ -10,6 +10,7 @@
 
 #include "openvr.h"
 #include "mathfu/glsl_mappings.h"
+#include "json.hpp"
 
 #include "events.h"
 #include "d3d.h"
@@ -30,10 +31,6 @@ namespace ovrly { namespace vr {
   enum class BufferFormat {
     RGBA = DXGI_FORMAT_R8G8B8A8_UNORM,
     BGRA = DXGI_FORMAT_B8G8R8A8_UNORM,
-  };
-
-  auto overlaydeleter = [&](::vr::VROverlayHandle_t handle) {
-    ::vr::VROverlay()->DestroyOverlay(handle);
   };
 
  /**
@@ -98,47 +95,15 @@ namespace ovrly { namespace vr {
       ::vr::VROverlayHandle_t vroverlay_;
   };
 
-  class Device {
-    public:
-      Device(int slot);
-      virtual ~Device();
-
-    private:
-      int slot_;
-      bool connected_;
-      std::string mfg_;
-      std::string model_;
-      std::string serial_;
-  };
-
-  class HMD : public Device {
-    public:
-      HMD(int slot);
-
-    private:
-      std::string tracking_;
-  };
-
-  class Controller : public Device {
-    public:
-      Controller(int slot);
-
-    private:
-      std::string role_;
-  };
-
-  class Tracker : public Device {
-    public:
-      Tracker(int slot);
-  };
-
-  class Reference : public Device {
-    public:
-      Reference(int slot);
-  };
 
   /** Raised when the VR system is initialized and ready to go */
   extern Event<> OnReady;
+
+  /** Raised when device information is updated from the VR system */
+  extern Event<const std::vector<std::unique_ptr<nlohmann::json>>&> OnDevicesUpdated;
+
+  /** Gets a list of devices currently known by the VR system */
+  const std::vector<std::unique_ptr<nlohmann::json>> &getDevices();
 
   /**
    * Registers to launch the vr event thread once the browser process is initialized

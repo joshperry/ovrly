@@ -12,6 +12,8 @@
 #include <memory>
 #include <openvr.h>
 
+#include "logging.h"
+
 namespace ovr = ::vr;
 using namespace std::placeholders;
 
@@ -59,7 +61,7 @@ namespace {
       }
 
       void GetViewRect(CefRefPtr< CefBrowser > browser, CefRect& rect) override {
-        OutputDebugString(L"OVRLY GetViewRect");
+        logger::debug("(web) GetViewRect");
         rect.Set(0, 0, size_.x, size_.y);
       }
 

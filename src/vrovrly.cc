@@ -11,96 +11,219 @@
 
 #include <sstream>
 #include <thread>
-#include "ranges.hpp"
 
 #include "appovrly.h"
+#include "logging.h"
+#include "ranges.hpp"
 
 namespace ovr = ::vr;
 using namespace Range;
+using json = nlohmann::json;
 
 
 namespace ovrly{ namespace vr{
 
 // Module local
 namespace {
+  // Map from tracking style enum to string
+  std::map<ovr::EHmdTrackingStyle, std::string> trackstylemap = {
+    {ovr::EHmdTrackingStyle::HmdTrackingStyle_Lighthouse, "lighthouse"},
+    {ovr::EHmdTrackingStyle::HmdTrackingStyle_OutsideInCameras, "outside-in"},
+    {ovr::EHmdTrackingStyle::HmdTrackingStyle_InsideOutCameras, "inside-out"},
+  };
 
+  // Map from controller role enum to string
+  std::map<ovr::ETrackedControllerRole, std::string> rolemap = {
+    {ovr::ETrackedControllerRole::TrackedControllerRole_LeftHand, "left"},
+    {ovr::ETrackedControllerRole::TrackedControllerRole_RightHand, "right"},
+    {ovr::ETrackedControllerRole::TrackedControllerRole_OptOut, "optout"},
+    {ovr::ETrackedControllerRole::TrackedControllerRole_Stylus, "stylus"},
+    {ovr::ETrackedControllerRole::TrackedControllerRole_Treadmill, "treadmill"},
+  };
+
+  // Thread for running the openvr event loop
   std::thread* loop_ = nullptr;
-  std::vector<std::unique_ptr<Device>> devices_;
+
+  // Set of openvr tracked device information
+  std::vector<std::unique_ptr<json>> devices_;
+
+  std::unique_ptr<json> createDevice(int slot) {
+    auto vr = ovr::VRSystem();
+    auto pdevice = std::make_unique<json>();
+    auto& device = *pdevice;
+
+    // Allocate error for out-params when getting device props
+    ovr::TrackedPropertyError err;
+
+    // Specialized device properties
+    switch(ovr::VRSystem()->GetTrackedDeviceClass(slot))
+    {
+    case ovr::TrackedDeviceClass_HMD:
+    {
+      logger::info("OPENVR found hmd");
+
+      device["type"] = "hmd";
+
+      auto style = static_cast<ovr::EHmdTrackingStyle>(vr->GetInt32TrackedDeviceProperty(slot, ovr::Prop_HmdTrackingStyle_Int32, &err));
+      if(err == ovr::ETrackedPropertyError::TrackedProp_Success) {
+        auto found = trackstylemap.find(style);
+        if(trackstylemap.end() != found) {
+          device["tracking"] = found->second;
+        } else {
+          device["tracking"] = "unknown";
+        }
+      }
+    }
+    break;
+
+    case ovr::TrackedDeviceClass_Controller:
+    {
+      logger::info("OPENVR found controller");
+
+      device["type"] = "controller";
+
+      auto role = vr->GetControllerRoleForTrackedDeviceIndex(slot);
+      auto found = rolemap.find(role);
+      if(rolemap.end() != found) {
+        device["role"] = found->second;
+      } else {
+        device["role"] = "invalid";
+      }
+    }
+    break;
+
+    case ovr::TrackedDeviceClass_GenericTracker:
+      logger::info("OPENVR found generic tracker");
+      device["type"] = "tracker";
+      break;
+      
+    case ovr::TrackedDeviceClass_TrackingReference:
+      logger::info("OPENVR found tracking reference");
+      device["type"] = "reference";
+      break;
+
+    // Untracked devices
+    default:
+      return nullptr;
+    }
+
+    // Generic device properties
+    device["slot"] = slot;
+    // A device always occupies the same slot for an application, if the device
+    // is lost after being enumerated by openvr, it will be shown as disconnected.
+    device["connected"] = vr->IsTrackedDeviceConnected(slot);
+
+    std::string buf; // temp buffer to hold property strings
+    buf.reserve(ovr::k_unMaxPropertyStringSize);
+
+    vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_ManufacturerName_String, buf.data(), ovr::k_unMaxPropertyStringSize, &err);
+    if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { device["manufacturer"] = buf; }
+
+    vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_ModelNumber_String, buf.data(), ovr::k_unMaxPropertyStringSize, &err);
+    if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { device["model"] = buf; }
+
+    vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_SerialNumber_String, buf.data(), ovr::k_unMaxPropertyStringSize, &err);
+    if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { device["serial"] = buf; }
+
+    return pdevice;
+  }
 
   void initVR() {
-    OutputDebugString(L"OPENVR INITIALIZING");
+    logger::info("OPENVR INITIALIZING");
     ovr::EVRInitError initerr = ovr::VRInitError_None;
     ovr::IVRSystem* vrsys = ovr::VR_Init(&initerr, ovr::VRApplication_Overlay);
 
     if (initerr != ovr::VRInitError_None) {
-      std::wstringstream ss;
-      ss << L"OPENVR FAIL Init: " << ovr::VR_GetVRInitErrorAsEnglishDescription(initerr);
-      OutputDebugString(ss.str().c_str());
-
+      logger::error("OPENVR FAIL Init: {}", ovr::VR_GetVRInitErrorAsEnglishDescription(initerr));
       return;
     }
 
-    OutputDebugString(L"OPENVR Initialized!");
+    logger::info("OPENVR Initialized!");
 
-    /** Enumerate tracked VR devices */
+    /** Enumerate initial state from tracked VR devices */
     for(auto i: range(ovr::k_unMaxTrackedDeviceCount)) {
-      auto dclass = vrsys->GetTrackedDeviceClass(i);
-
-      // Don't enumerate invalid device slots
-      if(dclass == ovr::TrackedDeviceClass_Invalid) continue;
-
-      // Create device instace for the specific class
-      std::unique_ptr<Device> device;
-      switch(dclass)
-      {
-      case ovr::TrackedDeviceClass_HMD:
-        OutputDebugString(L"OPENVR found hmd\n");
-        device = std::make_unique<HMD>(i);
-        break;
-      case ovr::TrackedDeviceClass_Controller:
-        OutputDebugString(L"OPENVR found controller\n");
-        device = std::make_unique<Controller>(i);
-        break;
-      case ovr::TrackedDeviceClass_GenericTracker:
-        OutputDebugString(L"OPENVR found generic tracker\n");
-        device = std::make_unique<Tracker>(i);
-        break;
-      case ovr::TrackedDeviceClass_TrackingReference:
-        OutputDebugString(L"OPENVR found tracking reference\n");
-        device = std::make_unique<Reference>(i);
-        break;
+      // Create and store device instances for each
+      std::unique_ptr<json> device = createDevice(i);
+      if(device) {
+        devices_.push_back(std::move(device));
       }
-
-      devices_.push_back(std::move(device));
     }
 
+    // Notify listeners that the vr module is initialized
     OnReady();
 
-    loop_ = new std::thread([]() {
-      while (true) {
-        ovr::VREvent_t event;
-        ovr::TrackedDevicePose_t pose;
-        if (ovr::VRSystem()->PollNextEventWithPose(ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, &event, sizeof(event), &pose)) {
-          std::wstringstream ss;
-          ss << L"OPENVR event (" << event.trackedDeviceIndex << L"): " << ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)) << std::endl;
-          OutputDebugString(ss.str().c_str());
-          continue;
+    // VR event dispatch loop
+    loop_ = new std::thread([vrsys]() {
+      ovr::VREvent_t event;
+      ovr::TrackedDevicePose_t poses[ovr::k_unMaxTrackedDeviceCount];
+      while(true) {
+        // Get the next event if there is one
+        if (ovr::VRSystem()->PollNextEvent(&event, sizeof(event))) {
+          logger::debug("OPENVR event ({}): {}", event.trackedDeviceIndex, ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)));
+
+          // Handle device add/remove events
+          switch(event.eventType) {
+          // Device added
+          case ovr::EVREventType::VREvent_TrackedDeviceActivated:
+          {
+            auto device = createDevice(event.trackedDeviceIndex);
+            if(device) {
+              logger::debug("OPENVR added activated device");
+              devices_.push_back(std::move(device));
+            }
+          }
+          break;
+
+          // Device removed
+          case ovr::EVREventType::VREvent_TrackedDeviceDeactivated:
+            logger::debug("OPENVR remove deactivated device");
+            devices_.erase(
+              std::remove_if(devices_.begin(), devices_.end(), [event](auto& d) { return (*d)["slot"] == event.trackedDeviceIndex; }),
+              devices_.end()
+            );
+            break;
+          }
+
+          continue; // Continue loop until no events are pending
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        // Get the current set of device poses
+        ovr::VRSystem()->GetDeviceToAbsoluteTrackingPose(ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, 0, poses, ovr::k_unMaxTrackedDeviceCount);
+        // Add pose to device
+        for(auto& pd: devices_) {
+          auto& device = *pd;
+          auto& pose = poses[device["slot"]];
+
+          device["pose"] = {
+            { "position", pose.mDeviceToAbsoluteTracking.m },
+            { "velocity", pose.vVelocity.v },
+            { "angular", pose.vAngularVelocity.v },
+            { "isvalid", pose.bPoseIsValid },
+            { "result", pose.eTrackingResult },
+          };
+
+          device["connected"] = pose.bDeviceIsConnected;
+        }
+
+        // TODO: Get controller input states
+
+        // Dispatch device update observable to notify listeners
+        OnDevicesUpdated(devices_);
+
+        // Wait to loop next, ~60fps
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
       }
     });
-    // TODO: Implement VR event dispatch loop
   }
 
   // A single graphics context to share between all overlays
-  std::shared_ptr<d3d::Device> device_;
+  std::shared_ptr<d3d::Device> d3dev_;
 
   void onBrowserProcess(process::Browser& browser) {
     // Init VR on the browser main thread, all VR ops ahould happen on this thread
     // also serializes creation of overlays until both the browser and VR stacks are ready
     browser.SubOnContextInitialized.attach([]() {
-      device_ = d3d::create_device();
+      d3dev_ = d3d::create_device();
       initVR();
     });
   }
@@ -112,134 +235,54 @@ namespace {
  * Module exports
  */
 
-Device::Device(int slot) : slot_(slot) {
-  auto vr = ovr::VRSystem();
-
-  // A device always occupies the same slot for an application, if the device
-  // is lost after being enumerated by openvr, it will be shown as disconnected.
-  connected_ = vr->IsTrackedDeviceConnected(slot);
-
-  std::wstringstream ss;
-  ss << L"OPENVR found tracked device in slot " << slot << L" that is " << (connected_ ? L"connected" : L"not connected") << std::endl;
-  OutputDebugString(ss.str().c_str());
-
-  // Allocate error for out-params when getting device props
-  ovr::TrackedPropertyError err;
-  char buf[ovr::k_unMaxPropertyStringSize]; // temp buffer to hold property strings
-
-  vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_ManufacturerName_String, buf, sizeof(buf), &err);
-  if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { mfg_ = buf; }
-
-  vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_ModelNumber_String, buf, sizeof(buf), &err);
-  if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { model_ = buf; }
-
-  vr->GetStringTrackedDeviceProperty(slot, ovr::Prop_SerialNumber_String, buf, sizeof(buf), &err);
-  if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { serial_ = buf; }
-}
-
-Device::~Device() {
-
-}
-
-HMD::HMD(int slot) : Device(slot) {
-  auto vr = ovr::VRSystem();
-
-  ovr::TrackedPropertyError err;
-
-  tracking_ = "unknown";
-  int style = vr->GetInt32TrackedDeviceProperty(slot, ovr::Prop_HmdTrackingStyle_Int32, &err);
-  if(err == ovr::ETrackedPropertyError::TrackedProp_Success) {
-    switch(style) {
-    case ovr::EHmdTrackingStyle::HmdTrackingStyle_Lighthouse:
-      tracking_ = "lighthouse";
-      break;
-    case ovr::EHmdTrackingStyle::HmdTrackingStyle_OutsideInCameras:
-      tracking_ = "outside-in";
-      break;
-    case ovr::EHmdTrackingStyle::HmdTrackingStyle_InsideOutCameras:
-      tracking_ = "inside-out";
-      break;
-    }
-  }
-}
-
-Controller::Controller(int slot) : Device(slot) {
-  auto vr = ovr::VRSystem();
-
-  auto role = vr->GetControllerRoleForTrackedDeviceIndex(slot);
-  switch(role) {
-  case ovr::ETrackedControllerRole::TrackedControllerRole_LeftHand:
-    role_ = "left";
-    break;
-  case ovr::ETrackedControllerRole::TrackedControllerRole_RightHand:
-    role_ = "left";
-    break;
-  case ovr::ETrackedControllerRole::TrackedControllerRole_OptOut:
-    role_ = "optout";
-    break;
-  case ovr::ETrackedControllerRole::TrackedControllerRole_Stylus:
-    role_ = "stylus";
-    break;
-  case ovr::ETrackedControllerRole::TrackedControllerRole_Treadmill:
-    role_ = "treadmill";
-    break;
-  default:
-    role_ = "invalid";
-    break;
-  }
-}
-
-Tracker::Tracker(int slot) : Device(slot) {
-}
-
-Reference::Reference(int slot) : Device(slot) {
-}
-
-Overlay::Overlay(mathfu::vec2 size, BufferFormat format) : size_(size), texformat_(format) {
-  auto ovrly = ovr::VROverlay();
-  if (ovrly) {
+Overlay::Overlay(mathfu::vec2 size, BufferFormat format) :
+  vroverlay_(ovr::k_ulOverlayHandleInvalid),
+  size_(size),
+  texformat_(format)
+{
+  auto ovrl = ovr::VROverlay();
+  if(ovrl) {
     // First see if the overlay exists already
     // TODO: Derive a stable name for overlays
-    auto err = ovrly->FindOverlay("ovrlymain", &vroverlay_);
-    if (err != ovr::VROverlayError_None) {
-      err = ovrly->CreateOverlay("ovrlymain", "Main ovrly", &vroverlay_);
+    auto err = ovrl->FindOverlay("ovrlymain", &vroverlay_);
+    if(err != ovr::VROverlayError_None) {
+      // Didn't find an existing overlay, create a new one
+      err = ovrl->CreateOverlay("ovrlymain", "Main ovrly", &vroverlay_);
       if (err != ovr::VROverlayError_None) {
-        std::wstringstream ss;
-        ss << L"OVRLY VR error creating overlay" << err;
-        OutputDebugString(ss.str().c_str());
+        logger::error("OPENVR error creating overlay {}", err);
       }
     }
 
-    if (vroverlay_ != ovr::k_ulOverlayHandleInvalid) {
-      ovrly->SetOverlayWidthInMeters(vroverlay_, 1.5f);
-      ovrly->ShowOverlay(vroverlay_);
+    // Set overlay properties and show it
+    if(vroverlay_ != ovr::k_ulOverlayHandleInvalid) {
+      ovrl->SetOverlayWidthInMeters(vroverlay_, size.x);
+      ovrl->ShowOverlay(vroverlay_);
     }
-  }
-  else {
-    OutputDebugString(L"OVRLY VR overlay interface unavailable");
+  } else {
+    logger::error("OPENVR overlay interface unavailable");
   }
 
-  // Set the openvr static texture definition info:w
+  // Set the openvr static texture definition info
   vrtexture_.eType = ovr::TextureType_DirectX;
   vrtexture_.eColorSpace = ovr::ColorSpace_Gamma;
 }
 
 Overlay::~Overlay() {
-  if (vroverlay_ != ovr::k_ulOverlayHandleInvalid) {
+  if(vroverlay_ != ovr::k_ulOverlayHandleInvalid) {
     ovr::VROverlay()->DestroyOverlay(vroverlay_);
   }
 }
 
 void Overlay::render(const void* buffer, std::vector<mathfu::recti> &dirty) {
   if(vroverlay_ == ovr::k_ulOverlayHandleInvalid) {
-    OutputDebugString(L"OVRLY Overlay::render with no overlay");
+    logger::debug("OPENVR Overlay::render with no overlay");
     return;
   }
 
   // TODO: Handle dirty rect optimization
 
   // Copy data from the chromium paint buffer to the texture
-  d3d::ScopedBinder<d3d::Texture2D> binder(device_->immediate_context(), texture_);
+  d3d::ScopedBinder<d3d::Texture2D> binder(d3dev_->immediate_context(), texture_);
   texture_->copy_from(
     buffer,
     texture_->width() * 4,
@@ -252,12 +295,18 @@ void Overlay::render(const void* buffer, std::vector<mathfu::recti> &dirty) {
 
 void Overlay::updateTargetSize(mathfu::vec2i size) {
   // Create a new chromium-compatible(BGRA32) D3D texture of the correct dims
-  texture_ = device_->create_texture(size.x, size.y, static_cast<DXGI_FORMAT>(texformat_), nullptr, 0);
+  texture_ = d3dev_->create_texture(size.x, size.y, static_cast<DXGI_FORMAT>(texformat_), nullptr, 0);
   // Point the openvr texture descriptor at the d3d texture
   vrtexture_.handle = texture_->texture_.get();
 }
 
 Event<> OnReady;
+
+Event<const std::vector<std::unique_ptr<nlohmann::json>>&> OnDevicesUpdated;
+
+const std::vector<std::unique_ptr<nlohmann::json>> &getDevices() {
+  return devices_;
+}
 
 void registerHooks() {
   // Register for notification when this is a browser process

@@ -23,31 +23,39 @@ add_subdirectory($ENV{MATHFU_ROOT} mathfu)
 ## Generated GLAD OpenGL loader
 set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
 
+## Spdlog header-only logging library
+set(SPDLOG_INCLUDE_DIR ${THIRDPARTY_DIR}/spdlog/include)
+
+## Spdlog header-only logging library
+set(JSON_INCLUDE_DIR ${THIRDPARTY_DIR}/nlohmann)
+
 ## Project Source files
 set(ALL_SRCS
 	app.rc
-	appovrly.h
 	appovrly.cc
-  d3d.h
+	appovrly.h
   d3d.cc
+  d3d.h
   events.h
-  jsovrly.h
   jsovrly.cc
+  jsovrly.h
+  logging.cc
+  logging.h
 	main.cc
-  mgrovrly.h
   mgrovrly.cc
-  ovrly.h
+  mgrovrly.h
   ovrly.cc
+  ovrly.h
 	platform.h
   ranges.hpp
 	resource.h
-	uiovrly.h
 	uiovrly.cc
+	uiovrly.h
 	uiovrly_win.cc
-  vrovrly.h
   vrovrly.cc
-  webovrly.h
+  vrovrly.h
   webovrly.cc
+  webovrly.h
 )
 
 # Logical target used to link the libcef library.
@@ -57,7 +65,7 @@ ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
 SET_CEF_TARGET_OUT_DIR()
 
 #include the subdirectory containing our libs
-include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
+include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR} ${SPDLOG_INCLUDE_DIR} ${JSON_INCLUDE_DIR})
 
 #indicate the entry point for the executable
 add_executable (ovrly WIN32 ${ALL_SRCS})

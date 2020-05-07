@@ -8,19 +8,6 @@
  */
 #include "appovrly.h"
 
-#include <string>
-#include <algorithm>    // std::for_each
-#include <vector>       // std::vector
-#include "include/cef_browser.h"
-#include "include/cef_command_line.h"
-#include "include/views/cef_browser_view.h"
-#include "include/views/cef_window.h"
-#include "include/wrapper/cef_helpers.h"
-
-#include "uiovrly.h"
-#include "jsovrly.h"
-
-
 namespace ovrly { namespace process {
 
 // Module locals
@@ -31,8 +18,7 @@ namespace {
  */
 class BrowserProcessHandler : public Browser, public CefBrowserProcessHandler {
   public:
-    BrowserProcessHandler() {
-    }
+    BrowserProcessHandler() { }
 
     void OnContextInitialized() override
     {
