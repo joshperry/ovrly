@@ -136,15 +136,15 @@ Because cef wraps chromium to act as the ovrly user interface, the logic necessa
 is split between processes; architecturally, cef exposes an event-driven interface to
 which a single handler can be provided from user code.
 
-When interfacing with cef, a common pattern is used for to map the cef handler interface to an ovrly Observable interface.
+When interfacing with cef, a common pattern is used to map the cef handler interface to an ovrly Observable interface.
 
 As an example of using the Observable module interface, any module that needs to run in the cef
 browser process would subscribe to the `process::OnBrowser` event to be notified,
-in the browser process, when the it is about to come up. This observable also delivers a
+in the browser process, when it is about to come up. This observable also delivers a
 `process::Browser` object which has additional process lifetime events that can be observed
 (e.g. `OnContextInitialized`).
 
-There is also a `process::OnRender` event for code that needs to run in the render processes
+There is also a `process::OnRender` event for code that needs to run at render process
 startup. These are found in the app module and are only a few among a number of other events
 across different modules.
 
@@ -159,13 +159,13 @@ across different modules.
 ## Browser to Overlay Rendering
 
 The cef lib is in charge of creating the composited view of the off-screen browser, and it is OpenVR's job to render
-that view into the overlay presented by the VR compositor. Shuffling this data between between the two is ovrly's task.
+that view into the overlay presented by the VR compositor. Shuffling this data between the two is ovrly's task.
 
 Page rendering is currently implemented using the [standard off-screen rendering technique](https://bitbucket.org/chromiumembedded/cef/wiki/GeneralUsage#markdown-header-off-screen-rendering)
 demonstrated in the cefclient test application.
 This provides a pixel buffer to the `OnPaint` function of the [CefRenderHandler interface](https://magpcss.org/ceforum/apidocs3/projects/(default)/CefRenderHandler.html).
 
-For each frame rendered to `OnPaint`, this buffer is copied into the opengl texture that is bound to the openvr overlay.
+For each frame rendered to `OnPaint`, the buffer is copied into the DirectX/opengl texture that is bound to the openvr overlay.
 The framerate is driven by cef and is configured by the `windowless_frame_rate` setting, this value can
 be set for each overlay to balance the needs of the content with desired performance.
 
@@ -190,7 +190,7 @@ When the [new shared texture patch](https://bitbucket.org/chromiumembedded/cef/p
 is merged into cef, ovrly will be able to mediate rendering pages into OpenVR at native VR framerates (if necessary for the overlay content)
 by sharing a texture between the cef and openvr rendering pipelines.
 
-    Using this method will allow ovrly to take over the main rendering main loop by telling cef when it should render each frame with `SendExternalBeginFrame`.
+    Using this method will allow ovrly to take over the main rendering loop by telling cef when it should render each frame with `SendExternalBeginFrame`.
 
 
 ## CEF Notes
@@ -226,7 +226,7 @@ This code runs in the browser process and is a singleton.
 
 *Important Handlers*
 
-*OnContextCreated:* Called when the browser process is bootstrapped and cef is fully ready to do things.
+*OnContextInitialized:* Called when the browser process is bootstrapped and cef is fully ready to do things.
 This is a good place to trigger initial browser display and loading other modules that require access to a ready-to-go cef.
 
 ### CefRenderProcessHandler
@@ -235,6 +235,7 @@ This code runs in the render process and is a singleton in its process.
 
 *Important Handlers*
 
+- *OnContextCreated:* When the javascript context for the render process is created. This is where extensions to the JS environment should be hooked in.
 - *OnProcesMessageReceived:* When a render process gets a message from another process.
 
 ### CefClient
@@ -247,19 +248,19 @@ for the browser frame and v8 context running in the render processes.
 These handlers are for communicating things like display, dialog, download, render,
 request, focus, find, drag-n-drop, and loading events.
 
-This code runs in the browser process and each browser can be created a unique instance of
-this and/or each handler classes.
+This code runs in the browser process and when creating each new browser instance (render process)
+a unique instance of this and/or each handler class(es) can be created, or a single instance can be
+used if the logic between all are absolutely identical.
 
 *Important Handlers*
 
-- *OnProcesMessageReceived:* ? Is this when a render process sends the browser process a message or is it a
-browser process mirror of the function with the same name on `CefRenderProcessHandler`?
+- *OnProcesMessageReceived:* When a render process sends the browser process a message.
 
 ### CefRenderHandler
 
-Handlers for events related to rendering happening on the render thread for a particular browser instance.
+Handlers that run in the browser process to respond to events related to rendering happening in the render process for a particular browser instance.
 
-This is a primary integration point for hooking render data when using cef to render browser views off-screen.
+This is a primary integration point for hooking render data when using cef to render browser views in off-screen mode.
 
 *Important Handlers*
 
