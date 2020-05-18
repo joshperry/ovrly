@@ -8,12 +8,13 @@
  */
 #pragma once
 
+#include <optional>
 #include "openvr.h"
 #include "mathfu/glsl_mappings.h"
-#include "json.hpp"
 
 #include "events.h"
 #include "d3d.h"
+
 
 /**
  * The purpose of this module is to interact with the vr API to initialize it and
@@ -95,15 +96,48 @@ namespace ovrly { namespace vr {
       ::vr::VROverlayHandle_t vroverlay_;
   };
 
+  struct DevicePose {
+    DevicePose() {}
+    DevicePose(::vr::TrackedDevicePose_t pose);
+
+    mathfu::Matrix<float, 4, 3> matrix;
+    mathfu::vec3 velocity;
+    mathfu::vec3 angular;
+    bool valid{ false };
+    ::vr::ETrackingResult result{ ::vr::ETrackingResult::TrackingResult_Uninitialized };
+  };
+
+  struct TrackedDevice {
+    TrackedDevice() {}
+    TrackedDevice(unsigned slot);
+
+    // HMD type properties
+    std::optional<::vr::EHmdTrackingStyle> trackingStyle; // Method used to track devices in the physical space
+
+    // Controller type properties
+    std::optional<::vr::ETrackedControllerRole> role; // The hand or subtype (e.g. treadmill) an input controller fills
+
+    // Properties common to all device types
+    unsigned slot{ 0 }; // Fixed identifier for a tracked device in a single session
+    ::vr::TrackedDeviceClass type{ ::vr::ETrackedDeviceClass::TrackedDeviceClass_Invalid }; // The type of device being tracked
+    bool connected{ false }; // Flags device connected state while keeping its assigned slot
+
+    std::optional<DevicePose> pose; // Position, rotation, and velocity information
+
+    std::wstring manufacturer;
+    std::wstring model;
+    std::wstring serial;
+  };
+
 
   /** Raised when the VR system is initialized and ready to go */
   extern Event<> OnReady;
 
-  /** Raised when device information is updated from the VR system */
-  extern Event<const std::vector<std::unique_ptr<nlohmann::json>>&> OnDevicesUpdated;
+  /** Raised when device state is updated from the VR system */
+  extern Event<std::shared_ptr<const std::vector<TrackedDevice>>> OnDevicesUpdated;
 
-  /** Gets a list of devices currently known by the VR system */
-  const std::vector<std::unique_ptr<nlohmann::json>> &getDevices();
+  /** Gets a list of devices states currently known by the VR system */
+  const std::vector<TrackedDevice> &getDevices();
 
   /**
    * Registers to launch the vr event thread once the browser process is initialized

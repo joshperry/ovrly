@@ -6,6 +6,13 @@ The purpose of this project is to compose [chromium embedded](https://bitbucket.
 with [OpenVR](https://github.com/ValveSoftware/openvr) to allow rapid creation of, and experimentation with,
 VR overlays whose logic and rendering are handled by web technologies.
 
+Why Though? Well, though they are anemic feature-wise, up to this point they are the only HCI in the VR
+world that can persist across different VR app executions. To use an anachronism, they're like the
+[TSRs](https://en.wikipedia.org/wiki/Terminate_and_stay_resident_program) of the DOS days, which brought
+the first instance of persistent multitasking into a single-tasking non-reentrant world.
+
+This is the state of VR today.
+
 Besides using cef to create the content of overlays placed in the VR world, an OS-windowed browser instance
 will be shown as the primary desktop UI and hosts the root context where the ovrly core javascript-side
 logic is executed.
@@ -100,23 +107,32 @@ Owing to the archaic nature of the native interface exposed by v8, the API expor
 js context is rudimentary. To make this API more idiomatic javascript, a facade will sit on top
 of the native exports to bridge that gap.
 
+The interface described above is this ideomatic interface.
+
+### Low-level JS Interface
+
+This describes the low-level JS interface that the ideomatic facade described above uses under the covers.
+
 ### Native to JS Event Dispatch
 
-There will be single-source events from openvr and other modules which need to be dispatched to 1..n javascript contexts.
-Not every context will be interested in every event, so a method is needed for subscribing and then dispatching specific
-events raised in native code.
+There will be single-source events and APIs exposed in the browser process, for openvr and other modules,
+to 1..n javascript contexts running separately in each render process.
+For events, not every context will be interested in every type, so a method is needed for subscribing and
+then dispatching specific events between processes.
 
-The cef lib includes a [message router](https://bitbucket.org/chromiumembedded/cef/src/master/include/wrapper/cef_message_router.h?at=master)
-that's intended specifically for this purpose.
-A message router is created in each render process, and one is created in
-the browser process. The browser-process side router will watch for subscriptions from the js facade
-and handle the required bookkeeping to deliver native events for the requested subscriptions.
+Because of its high-performance and low-latency, [ZeroMQ](zeromq.org) was chosen for communications
+between the browser process and the render processes. The cef interprocess messaging system was explored for
+this task and was found to be lacking in a number of places for the efficient delivery of realtime data.
 
-The native code will keep as little state as possible while the javascript facade that interacts
-with the native exports and message router will be in charge of keeping most state and updating
-it in response to event messages from the router.
+Because zmq supports zero-copy transport of opaque binary messages, and both the sending and receiving
+sides are guaranteed to be processes of the same executable on the same machine, this should allow the use
+of extremely high-performance methods of serializing data (see `serralize.hpp`).
 
-The message router js-side functions are exposed as `ovrlyNativeQuery` and `ovrlyNativeQueryCancel`.
+The browser process sets up an xpub socket listening on localhost, to which each render process connects
+using a sub socket and sets up needed subscriptions. Because zmq's IPC transport only supports unix
+domain sockets, a localhost TCP connection is the only cross-platform method of IPC that it offers.
+
+TODO: Implement xpub subscriptions to filter message topics on the server side instead of the client.
 
 ## C++ Architecture
 

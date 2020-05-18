@@ -61,4 +61,11 @@ extern Event<Render&> OnRender;
  */
 CefRefPtr<CefApp> Create();
 
+/**
+* Dispatch a function for execution on the main process thread.
+* 
+* Runs on the UI thread in the browser process, and the renderer thread in the render process.
+*/
+void runOnMain(std::function<void()>&&);
+
 }} // namespace

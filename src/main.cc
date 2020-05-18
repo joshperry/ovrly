@@ -67,7 +67,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
 
   // Setup CEF initialization settings
   CefSettings settings;
+  settings.remote_debugging_port = 8088;
   settings.no_sandbox = true;
+  settings.windowless_rendering_enabled = true;
 
   // Bind settings and app into CEF browser process init
   CefInitialize(main_args, settings, app, nullptr);

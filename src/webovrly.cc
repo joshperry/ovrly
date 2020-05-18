@@ -201,7 +201,7 @@ std::unique_ptr<vr::Overlay> Create(mathfu::vec2 size, std::string const &url) {
   CefBrowserSettings settings;
   settings.windowless_frame_rate = 30;
 
-  OutputDebugString(L"OVRLY Creating Web Overlay");
+  logger::info("OVRLY Creating Web Overlay");
 
   // Rez the actual chromium browser
   CefBrowserHost::CreateBrowser(window_info, client, url.c_str(), settings, nullptr, nullptr);

@@ -62,10 +62,12 @@ class RenderProcessHandler : public Render, public CefRenderProcessHandler {
     DISALLOW_COPY_AND_ASSIGN(RenderProcessHandler);
 };
 
+bool isbrowser{ true };
+
 // Implement application-level callbacks for the browser processes.
 class App : public CefApp {
   public:
-    CefRefPtr<CefBrowserProcessHandler> App::GetBrowserProcessHandler() override {
+    CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override {
       if(!browser_) {
         browser_ = new BrowserProcessHandler();
         // Notify observers
@@ -76,7 +78,8 @@ class App : public CefApp {
     }
 
     // These handlers are executed in the render process
-    CefRefPtr<CefRenderProcessHandler> App::GetRenderProcessHandler() override {
+    CefRefPtr<CefRenderProcessHandler> GetRenderProcessHandler() override {
+      isbrowser = false;
       if(!render_) {
         render_ = new RenderProcessHandler();
         // Notify observers
@@ -93,6 +96,22 @@ class App : public CefApp {
     IMPLEMENT_REFCOUNTING(App);
 };
 
+// Allows wrapping a std::function in a CefTask
+class FuncTask : public CefTask {
+  public:
+    FuncTask(std::function<void()> &&func) : func_(std::move(func)) { }
+
+    void Execute() override {
+      func_();
+    }
+
+  private:
+    std::function<void()> func_;
+
+    IMPLEMENT_REFCOUNTING(FuncTask);
+    DISALLOW_COPY_AND_ASSIGN(FuncTask);
+};
+
 }  // module local
 
 
@@ -105,6 +124,10 @@ Event<Render&> OnRender;
 
 CefRefPtr<CefApp> Create() {
   return new App();
+}
+
+void runOnMain(std::function<void()> &&func) {
+  CefPostTask(isbrowser ? cef_thread_id_t::TID_UI : cef_thread_id_t::TID_RENDERER, new FuncTask(std::move(func)));
 }
 
 }} // module exports
