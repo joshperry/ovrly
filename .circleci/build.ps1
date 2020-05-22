@@ -37,7 +37,7 @@ Pop-Location
 ######
 
 # Generate visual studio sln
-gen_vs2019.bat
+.\gen_vs2019.bat
 
 # Execute the build
 Push-Location build
