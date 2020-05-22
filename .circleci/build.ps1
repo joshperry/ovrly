@@ -25,7 +25,8 @@ $MATHFU_ROOT="$Env:HOMEPATH\mathfu"
 $CEF_VERSION="cef_binary_81.3.10+gb223419+chromium-81.0.4044.138_windows64"
 $CEF_VERSION_ENC=[uri]::EscapeDataString($CEF_VERSION)
 Invoke-WebRequest -URI "http://opensource.spotify.com/cefbuilds/$CEF_VERSION_ENC.tar.bz2" -OutFile "$Env:HOMEPATH\$CEF_VERSION.tar.bz2"
-tar -zxvf "$CEF_VERSION.tar.bz2"
+bunzip2 -d "$CEF_VERSION.tar.bz2"
+tar xvf "$CEF_VERSION.tar"
 
 $CEF_ROOT="$Env:HOMEPATH\$CEF_VERSION"
 
