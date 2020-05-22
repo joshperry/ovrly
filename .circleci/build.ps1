@@ -11,9 +11,7 @@ Invoke-WebRequest -URI "https://github.com/Kitware/CMake/releases/download/v$CMA
 Expand-Archive "$Env:HOMEPATH\cmake-$CMAKE_VERSION-win64-x64.zip" -DestinationPath "$Env:ProgramFiles"
 Rename-Item "$Env:ProgramFiles\cmake-$CMAKE_VERSION-win64-x64" -NewName CMake
 
-if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
-    New-Alias -Name cmake -Value "$Env:ProgramFiles\CMake\bin\cmake.exe"
-}
+$Env:Path += ";$Env:ProgramFiles\CMake\bin"
 
 # Get mathfu
 Push-Location $Env:HOMEPATH
@@ -26,7 +24,7 @@ $CEF_VERSION="cef_binary_81.3.10+gb223419+chromium-81.0.4044.138_windows64"
 $CEF_VERSION_ENC=[uri]::EscapeDataString($CEF_VERSION)
 Invoke-WebRequest -URI "http://opensource.spotify.com/cefbuilds/$CEF_VERSION_ENC.tar.bz2" -OutFile "$Env:HOMEPATH\$CEF_VERSION.tar.bz2"
 bunzip2 -d "$CEF_VERSION.tar.bz2"
-tar xvf "$CEF_VERSION.tar"
+tar xf "$CEF_VERSION.tar"
 
 $CEF_ROOT="$Env:HOMEPATH\$CEF_VERSION"
 
