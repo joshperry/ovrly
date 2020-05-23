@@ -131,8 +131,8 @@ namespace {
 
   class WebOverlay : public vr::Overlay {
     public:
-      WebOverlay(mathfu::vec2 size, CefRefPtr<WebClient> client) :
-        vr::Overlay(size, vr::BufferFormat::BGRA), // chromium renders in the BGRA format
+      WebOverlay(const std::string &name, mathfu::vec2 size, CefRefPtr<WebClient> client) :
+        vr::Overlay(name, size, vr::BufferFormat::BGRA), // chromium renders in the BGRA format
         client_(client)
       {
         client->GetHandler()->SetPaintCallback([this](auto rects, auto buffer) {
@@ -161,11 +161,11 @@ namespace {
         * This gets registered with the handler to be called when the offscreen
         * browser provides a frame to paint.
         */
-      void cefpaint(CefRenderHandler::RectList dirtyRects, const void *buffer) {
+      void cefpaint(const CefRenderHandler::RectList &dirtyRects, const void *buffer) {
         // Convert from cef rect list to mathfu rects
         std::vector<mathfu::recti> rects;
         rects.resize(dirtyRects.size());
-        std::transform(dirtyRects.begin(), dirtyRects.end(), rects.begin(), [](CefRect rect) {
+        std::transform(dirtyRects.begin(), dirtyRects.end(), rects.begin(), [](const CefRect &rect) {
           return mathfu::recti(rect.x, rect.y, rect.width, rect.height);
         });
 
@@ -185,7 +185,7 @@ namespace {
 
 Event<Client&> OnClient;
 
-std::unique_ptr<vr::Overlay> Create(mathfu::vec2 size, std::string const &url) {
+std::unique_ptr<vr::Overlay> Create(const std::string &name, mathfu::vec2 size, std::string const &url) {
   CefRefPtr<ClientHandler> handler = new ClientHandler();
 
   OnClient(*handler);
@@ -206,7 +206,7 @@ std::unique_ptr<vr::Overlay> Create(mathfu::vec2 size, std::string const &url) {
   // Rez the actual chromium browser
   CefBrowserHost::CreateBrowser(window_info, client, url.c_str(), settings, nullptr, nullptr);
 
-  return std::make_unique<WebOverlay>(size, client);
+  return std::make_unique<WebOverlay>(name, size, client);
 }
 
 }} // module exports

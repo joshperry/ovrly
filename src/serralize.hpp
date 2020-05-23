@@ -26,13 +26,19 @@
 #include <sstream>
 #include <iterator>
 
+#include "ranges.hpp"
+
 namespace ovrly { namespace serralize { // yes, I can spell even though I'm an sc2 fan
 
+  /**
+   * Implements an autogrowing buffer to act as a simple memory write stream
+   */
   class OutMemStream {
   public:
-    OutMemStream() : buf_{} {}
+    OutMemStream() : buf_{} {
+      buf_.reserve(1024 * 1000); // Preallocate buffer space to minimize allocations/copies
+    }
     inline void write(const void* p, size_t size) {
-      //stream_.write(reinterpret_cast<const char*>(p), size);
       auto cp = static_cast<const char*>(p);
       std::copy(cp, cp + size, std::back_inserter(buf_));
     }
@@ -45,17 +51,21 @@ namespace ovrly { namespace serralize { // yes, I can spell even though I'm an s
     std::vector<char> buf_;
   };
 
+  /**
+   * Implements position tracking over a buffer to act as a simple memory read stream
+   */
   class InMemStream {
   public:
     InMemStream(void* buf, size_t size) : buf_{ static_cast<char*>(buf) }, size_{ size } {}
 
+    // Copy some number of bytes from the stream into the provided buffer
     void read(void* p, size_t size) {
       assert(pos_ + size <= size_);
       memcpy(p, buf_ + pos_, size);
       pos_ += size;
     }
 
-    // Get a pointer into the buffer at the current position and increment the position
+    // Get a pointer into the stream at the current position and advance the position
     void *pos_ptr(size_t size) {
       assert(pos_ + size <= size_);
       auto ptr = buf_ + pos_;
@@ -71,20 +81,24 @@ namespace ovrly { namespace serralize { // yes, I can spell even though I'm an s
 
   template<typename T>
   void serialize(OutMemStream& o, const std::basic_string<T>& s) {
-    size_t l = s.length() * sizeof(T);
-    o.write(&l, sizeof(size_t));
-    o.write(s.c_str(), l);
+    size_t l = s.length() * sizeof(T); // Get the byte-length of the string
+    o.write(&l, sizeof(size_t)); // Write the length
+    o.write(s.c_str(), l); // Write the string data
   }
 
   template<typename T>
   void deserialize(InMemStream& i, std::basic_string<T>* s) {
     size_t l;
-    i.read(&l, sizeof(size_t));
+    i.read(&l, sizeof(size_t)); // Get the byte length of the string
+    // Construct in place and copy the string data from the stream
     new(s) std::basic_string<T>(static_cast<T*>(i.pos_ptr(l)), l / sizeof(T));
   }
 
   void serialize(OutMemStream& o, const vr::TrackedDevice& dev) {
+    // Write the object memory to capture POD members
     o.write(&dev, sizeof(vr::TrackedDevice));
+
+    // Individually serialize non-pod members
     serialize(o, dev.manufacturer);
     serialize(o, dev.model);
     serialize(o, dev.serial);
@@ -107,50 +121,29 @@ namespace ovrly { namespace serralize { // yes, I can spell even though I'm an s
 
   template<class T>
   inline void serialize(OutMemStream &o, const std::vector<T>& v) {
-    // NB: can be further optimized by writing the
-    // whole v.data() at once.
+    // Write the element count
     size_t sz = v.size();
     o.write(&sz, sizeof(size_t));
-    for(auto &it : v)
+
+    // Serialize each vector element
+    for(auto &it: v)
       serialize(o, it);
   }
 
   template<class T>
   inline void deserialize(InMemStream &i, std::vector<T>* v) {
+    // Get the number of elements in the serialized vector
     size_t sz;
     i.read(&sz, sizeof(size_t));
+
+    // Construct the vector in the pointer provided and reserve space for the elements
     new(v) std::vector<T>;
+    v->reserve(sz);
 
-    for(size_t x = 0; x < sz; ++x) {
-      T tmp;
-      deserialize(i, &tmp);
-      v->push_back(std::move(tmp));
-    }
-  }
-
-  template<typename T>
-  inline void serialize(OutMemStream& o, const std::optional<T>& option) {
-    char have = 0;
-    if(option) {
-      have = 1;
-      o.write(&have, 1);
-      serialize(o, option.value());
-    } else {
-      o.write(&have, 1);
-    }
-  }
-
-  template<typename T>
-  inline void deserialize(InMemStream& i, std::optional<T>* o) {
-    char hasVal;
-    i.read(&hasVal, 1);
-
-    if(hasVal) {
-      T tmp;
-      deserialize(i, &tmp);
-      new(o) std::optional<T>{std::move(tmp)};
-    } else {
-      new(o) std::optional<T>{};
+    // Construct each vector element in place and deserialize to the element address
+    for(auto x: Range::range(static_cast<int>(sz))) {
+      v->emplace_back();
+      deserialize(i, &(*v)[x]);
     }
   }
 

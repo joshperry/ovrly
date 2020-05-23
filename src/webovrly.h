@@ -54,6 +54,6 @@ extern Event<Client&> OnClient;
 /**
  * Create a new web client and get a reference to its `CefClient`
  */
-std::unique_ptr<vr::Overlay> Create(mathfu::vec2 size, std::string const &url);
+std::unique_ptr<vr::Overlay> Create(const std::string &name, mathfu::vec2 size, std::string const &url);
 
 }} // namespaces

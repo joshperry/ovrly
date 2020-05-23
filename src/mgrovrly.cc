@@ -20,14 +20,18 @@ namespace {
   std::vector<std::unique_ptr<vr::Overlay>> overlays_;
 
   void onVRReady() {
-    overlays_.push_back(web::Create(
-        mathfu::vec2(1.5f, 1.33333333f),
-        "https://webglsamples.org/aquarium/aquarium.html"
-    ));
+    auto overlay = web::Create(
+      "FishTank",
+      mathfu::vec2(1.5f, 1.33333333f),
+      "https://webglsamples.org/aquarium/aquarium.html"
+    );
+
+    overlay->setTransform(mathfu::mat4::FromTranslationVector({ 1.25, 0, 0 }));
+
+    overlays_.push_back(std::move(overlay));
   }
 
 }  // module local
-
 
 /*
  * Module exports

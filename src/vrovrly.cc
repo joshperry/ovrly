@@ -132,7 +132,7 @@ namespace {
           OnDevicesUpdated(devices);
         });
 
-        // Wait to loop next, ~60fps
+        // Wait to loop next
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
       }
     });
@@ -150,6 +150,23 @@ namespace {
     });
   }
 
+  mathfu::mat4 to_mathfu(const ::vr::HmdMatrix34_t &mat) {
+    return {
+      mat.m[0][0], mat.m[0][1], mat.m[0][2], mat.m[0][3],
+      mat.m[1][0], mat.m[1][1], mat.m[1][2], mat.m[1][3],
+      mat.m[2][0], mat.m[2][1], mat.m[2][2], mat.m[2][3],
+      0, 0, 0, 1
+    };
+  }
+
+  ::vr::HmdMatrix34_t from_mathfu(const mathfu::mat4 &mat) {
+    return { {
+      {mat.data_[0][0], mat.data_[0][1], mat.data_[0][2], mat.data_[0][3]},
+      {mat.data_[1][0], mat.data_[1][1], mat.data_[1][2], mat.data_[1][3]},
+      {mat.data_[2][0], mat.data_[2][1], mat.data_[2][2], mat.data_[2][3]}
+    } };
+  }
+
 } // module local
 
 
@@ -158,25 +175,36 @@ namespace {
  */
 
 DevicePose::DevicePose(ovr::TrackedDevicePose_t pose) :
-  matrix(
-    pose.mDeviceToAbsoluteTracking.m[0][0],
-    pose.mDeviceToAbsoluteTracking.m[0][1],
-    pose.mDeviceToAbsoluteTracking.m[0][2],
-    pose.mDeviceToAbsoluteTracking.m[0][3],
-    pose.mDeviceToAbsoluteTracking.m[1][0],
-    pose.mDeviceToAbsoluteTracking.m[1][1],
-    pose.mDeviceToAbsoluteTracking.m[1][2],
-    pose.mDeviceToAbsoluteTracking.m[1][3],
-    pose.mDeviceToAbsoluteTracking.m[2][0],
-    pose.mDeviceToAbsoluteTracking.m[2][1],
-    pose.mDeviceToAbsoluteTracking.m[2][2],
-    pose.mDeviceToAbsoluteTracking.m[2][3]
-  ),
+  matrix(to_mathfu(pose.mDeviceToAbsoluteTracking)),
   velocity(pose.vVelocity.v),
   angular(pose.vAngularVelocity.v),
   valid(pose.bPoseIsValid),
   result(pose.eTrackingResult)
 { }
+
+bool DevicePose::operator ==(const ::vr::TrackedDevicePose_t& b) const {
+  auto &nmat = b.mDeviceToAbsoluteTracking.m;
+  if(
+    matrix.data_[0].data_[0] != nmat[0][0] ||
+    matrix.data_[0].data_[1] != nmat[0][1] ||
+    matrix.data_[0].data_[2] != nmat[0][2] ||
+    matrix.data_[0].data_[3] != nmat[0][3] ||
+    matrix.data_[1].data_[0] != nmat[1][0] ||
+    matrix.data_[1].data_[1] != nmat[1][1] ||
+    matrix.data_[1].data_[2] != nmat[1][2] ||
+    matrix.data_[1].data_[3] != nmat[1][3] ||
+    matrix.data_[2].data_[0] != nmat[2][0] ||
+    matrix.data_[2].data_[1] != nmat[2][1] ||
+    matrix.data_[2].data_[2] != nmat[2][2] ||
+    matrix.data_[2].data_[3] != nmat[2][3] ||
+    !memcmp(&velocity.data_[0], &b.vVelocity.v[0], sizeof(float)*3) ||
+    !memcmp(&angular.data_[0], &b.vAngularVelocity.v[0], sizeof(float)*3) ||
+    valid != b.bPoseIsValid ||
+    result != b.eTrackingResult
+  ) { return false; }
+
+  return true;
+}
 
 TrackedDevice::TrackedDevice(unsigned slot) : slot(slot) {
   auto vr = ovr::VRSystem();
@@ -227,7 +255,7 @@ TrackedDevice::TrackedDevice(unsigned slot) : slot(slot) {
   if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { serial = converter.from_bytes(buf); }
 }
 
-Overlay::Overlay(mathfu::vec2 size, BufferFormat format) :
+Overlay::Overlay(const std::string &name, mathfu::vec2 size, BufferFormat format) :
   vroverlay_(ovr::k_ulOverlayHandleInvalid),
   size_(size),
   texformat_(format)
@@ -236,10 +264,10 @@ Overlay::Overlay(mathfu::vec2 size, BufferFormat format) :
   if(ovrl) {
     // First see if the overlay exists already
     // TODO: Derive a stable name for overlays
-    auto err = ovrl->FindOverlay("ovrlymain", &vroverlay_);
+    auto err = ovrl->FindOverlay(name.c_str(), &vroverlay_);
     if(err != ovr::VROverlayError_None) {
       // Didn't find an existing overlay, create a new one
-      err = ovrl->CreateOverlay("ovrlymain", "Main ovrly", &vroverlay_);
+      err = ovrl->CreateOverlay(name.c_str(), name.c_str(), &vroverlay_);
       if (err != ovr::VROverlayError_None) {
         logger::error("OPENVR error creating overlay {}", err);
       }
@@ -265,7 +293,18 @@ Overlay::~Overlay() {
   }
 }
 
-void Overlay::render(const void* buffer, std::vector<mathfu::recti> &dirty) {
+void Overlay::setTransform(const mathfu::mat4 &matrix) {
+  transform_ = from_mathfu(matrix);
+  ovr::VROverlay()->SetOverlayTransformAbsolute(vroverlay_, ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, &transform_);
+}
+
+void Overlay::setParent(const Overlay& parent, const mathfu::mat4 &matrix) {
+  transform_ = from_mathfu(matrix);
+  parent_ = parent.vroverlay_;
+  ovr::VROverlay()->SetOverlayTransformOverlayRelative(vroverlay_, parent_, &transform_);
+}
+
+void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty) {
   if(vroverlay_ == ovr::k_ulOverlayHandleInvalid) {
     logger::debug("OPENVR Overlay::render with no overlay");
     return;

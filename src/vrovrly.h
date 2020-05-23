@@ -42,7 +42,7 @@ namespace ovrly { namespace vr {
  */
   class Overlay {
     public:
-      Overlay(mathfu::vec2 size, BufferFormat format);
+      Overlay(const std::string &name, mathfu::vec2 size, BufferFormat format);
       virtual ~Overlay();
 
       /**
@@ -53,6 +53,16 @@ namespace ovrly { namespace vr {
        */
       mathfu::vec2 size() { return size_; }
 
+      /**
+       * Sets the transform matrix for positioning the overlay in VR space
+       */
+      void setTransform(const mathfu::mat4 &matrix);
+
+      /**
+       * Parents the positioning of this overlay to another overlay with a transform, visibility is also mirrored
+       */
+      void setParent(const Overlay &parent, const mathfu::mat4 &matrix);
+
     protected:
       /**
        * For subclasses to provide a paint buffer for overlay rendering along
@@ -61,7 +71,7 @@ namespace ovrly { namespace vr {
        * Only buffers with 32-bit pixels are supported, in one of the formats
        * specified in `BufferFormat`.
        */
-      void render(const void *buffer, std::vector<mathfu::recti> &dirty);
+      void render(const void *buffer, const std::vector<mathfu::recti> &dirty);
 
       // TODO: Interface for shared texture rendering
 
@@ -94,13 +104,17 @@ namespace ovrly { namespace vr {
       std::shared_ptr<d3d::Texture2D> texture_;
       ::vr::Texture_t vrtexture_;
       ::vr::VROverlayHandle_t vroverlay_;
+      ::vr::HmdMatrix34_t transform_{ { {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0} } };
+      ::vr::VROverlayHandle_t parent_{ ::vr::k_ulOverlayHandleInvalid };
   };
 
   struct DevicePose {
     DevicePose() {}
     DevicePose(::vr::TrackedDevicePose_t pose);
 
-    mathfu::Matrix<float, 4, 3> matrix;
+    bool operator ==(const ::vr::TrackedDevicePose_t& b) const;
+
+    mathfu::mat4 matrix;
     mathfu::vec3 velocity;
     mathfu::vec3 angular;
     bool valid{ false };

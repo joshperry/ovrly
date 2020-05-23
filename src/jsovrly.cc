@@ -1,3 +1,11 @@
+/*
+ * This file is part of ovrly (https://github.com/joshperry/ovrly)
+ * Copyright (c) 2020 Joshua Perry
+ *
+ * This program can be redistributed and/or modified under the
+ * terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3.
+ */
 #include "jsovrly.h"
 
 #include <string>
@@ -12,6 +20,7 @@
 #include "serralize.hpp"
 
 using namespace std::string_literals;
+auto const readonly = CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY;
 
 namespace ovrly { namespace js {
 
@@ -51,8 +60,8 @@ namespace {
       logger::debug("Render process spawned JS context!");
 
       auto ovrly = CefV8Value::CreateObject(nullptr, nullptr);
-      ovrly->SetValue(L"initialized", CefV8Value::CreateBool(true), CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
-      jsctx->GetGlobal()->SetValue(L"ovrly", ovrly, CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+      ovrly->SetValue(L"initialized", CefV8Value::CreateBool(true), readonly);
+      jsctx->GetGlobal()->SetValue(L"ovrly", ovrly, readonly);
 
       // Start a thread to receive zmq IPC messages
       zloop_ = std::make_unique<std::thread>([jsctx]() {
@@ -77,12 +86,10 @@ namespace {
               result = zsock_->recv(*msg);
               if(result) {
                 // Update the js data on its thread
-                process::runOnMain([jsctx, topic, msg = std::move(msg)]() {
-                  // TODO: Process zmq message into js
-
+                process::runOnMain([jsctx, topic, msg]() {
                   // Deserialize the message data
-                  std::vector<vr::TrackedDevice> devices;
                   serralize::InMemStream instream(msg->data(), msg->size());
+                  std::vector<vr::TrackedDevice> devices;
                   deserialize(instream, &devices);
 
                   jsctx->Enter();
@@ -90,30 +97,30 @@ namespace {
                   auto ovrly = jsctx->GetGlobal()->GetValue(L"ovrly");
                   if(!ovrly->HasValue(L"devices")) {
                     auto hmdev = CefV8Value::CreateObject(nullptr, nullptr);
-                    hmdev->SetValue(L"manufacturer", CefV8Value::CreateString(devices[0].manufacturer), CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
-                    hmdev->SetValue(L"model", CefV8Value::CreateString(devices[0].model), CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
-                    hmdev->SetValue(L"serial", CefV8Value::CreateString(devices[0].serial), CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+                    hmdev->SetValue(L"manufacturer", CefV8Value::CreateString(devices[0].manufacturer), readonly);
+                    hmdev->SetValue(L"model", CefV8Value::CreateString(devices[0].model), readonly);
+                    hmdev->SetValue(L"serial", CefV8Value::CreateString(devices[0].serial), readonly);
 
                     // ovrly.devices.hmd
                     auto jsdevs = CefV8Value::CreateObject(nullptr, nullptr);
-                    jsdevs->SetValue(L"hmd", hmdev, CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+                    jsdevs->SetValue(L"hmd", hmdev, readonly);
 
                     // ovrly.devices
-                    ovrly->SetValue(L"devices", jsdevs, CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+                    ovrly->SetValue(L"devices", jsdevs, readonly);
                   }
 
                   auto jsdevs = ovrly->GetValue(L"devices");
                   auto hmdev = jsdevs->GetValue(L"hmd");
 
-                  hmdev->SetValue(L"connected", CefV8Value::CreateBool(devices[0].connected), CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+                  hmdev->SetValue(L"connected", CefV8Value::CreateBool(devices[0].connected), readonly);
 
                   if(devices[0].pose) {
                     if(!hmdev->HasValue(L"pose")) {
                       // ovrly.devices.hmd.pose.matrix
                       auto hmdevmat = CefV8Value::CreateArray(12);
                       auto hmdevpose = CefV8Value::CreateObject(nullptr, nullptr);
-                      hmdevpose->SetValue(L"matrix", hmdevmat, CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
-                      hmdev->SetValue(L"pose", hmdevpose, CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY);
+                      hmdevpose->SetValue(L"matrix", hmdevmat, readonly);
+                      hmdev->SetValue(L"pose", hmdevpose, readonly);
                     }
 
                     auto hmdevpose = hmdev->GetValue(L"pose");
@@ -150,30 +157,43 @@ namespace {
 
   }
 
-  // Send an updated device state list to the each render process
-  void sendDevices(std::shared_ptr<const std::vector<vr::TrackedDevice>> devices) {
-    // TODO: optimize to skip sending unchanged payloads across the native->js barrier
+  /**
+   * Serializes some message object into a zmq message and sets up cleanup
+   */
+  template<typename T>
+  zmq::message_t getZmqMessage(const T &data) {
+    // TODO: should we create a cache of outstreams to limit allocations?
+    auto outstream = new serralize::OutMemStream();
+    serialize(*outstream, data);
 
+    return {
+      &outstream->getBuf()[0],
+      outstream->getBuf().size(),
+      [](void* buf, void* sharedref) { delete static_cast<serralize::OutMemStream*>(sharedref); },
+      outstream
+    };
+  }
+
+  /**
+   * Send a serializable message object to each subscribed render process
+   */
+  template<typename T>
+  void publishMessage(const std::string &topic, const T &data) {
     try {
-      // Serialize the devices
-      auto outstream = new serralize::OutMemStream();
-      serralize::serialize(*outstream, *devices.get());
-
-      zmq::message_t msg(
-        &outstream->getBuf()[0],
-        outstream->getBuf().size(),
-        [](void* buf, void* sharedref) { delete static_cast<serralize::OutMemStream*>(sharedref); },
-        outstream
-      );
-
       // Send the envelope topic part
-      zsock_->send(zmq::message_t("vr.devices.updated"s), zmq::send_flags::sndmore);
+      zsock_->send(zmq::message_t(topic), zmq::send_flags::sndmore);
 
-      // Send the body part
+      // Serialize the data and send it as the envelope body
+      auto msg = getZmqMessage(data);
       zsock_->send(std::move(msg));
-    } catch(zmq::error_t& err) {
+    } catch(zmq::error_t &err) {
       logger::error("Sending zmq message failed: {}", err.what());
     }
+  }
+
+  // Send an updated device state list to the each render process
+  void sendDevices(std::shared_ptr<const std::vector<vr::TrackedDevice>> devices) {
+    publishMessage("vr.devices.updated", *devices.get());
   }
 
   // When the VR module is ready to go

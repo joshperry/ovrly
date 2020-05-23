@@ -16,8 +16,6 @@ find_library(OPENVR_LIBRARIES
 )
 set(OPENVR_INCLUDE_DIR ${THIRDPARTY_DIR}/openvr/headers)
 
-message(${OPENVR_LIBRARIES})
-
 ## zeromq lib paths
 set(ZMQ_BINARY_DIR ${THIRDPARTY_DIR}/zmq/bin/win64)
 set(ZMQ_BINARY_FILES libzmq-v142-mt-4_3_2.dll)
@@ -80,6 +78,11 @@ set(ALL_SRCS
   webovrly.cc
   webovrly.h
 )
+
+if(MSVC)
+  #Fix nonconformant __cplusplus define
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
+endif()
 
 # Logical target used to link the libcef library.
 ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
