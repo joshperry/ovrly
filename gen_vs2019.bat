@@ -7,9 +7,11 @@ rem CEF_ROOT=h:\dev\cef_binary_80.1.15+g7b802c9+chromium-80.0.3987.163_windows64
 set BASE_DIR=%~dp0
 rem echo %BASE_DIR%
 
-mkdir "%BASE_DIR%\build"
+IF "%1"=="" ( SET "BUILD_DIR=build" ) ELSE ( SET "BUILD_DIR=%1" )
 
-cd "%BASE_DIR%\build"
+mkdir "%BASE_DIR%\%BUILD_DIR%"
+
+cd "%BASE_DIR%\%BUILD_DIR%"
 
 rem use Visual Studio as the generator
 rem cmake -G "Visual Studio 15" "%BASE_DIR%"
