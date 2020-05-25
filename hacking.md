@@ -1,7 +1,9 @@
 ## Containerized Build
 
-    docker build -t ovrlybuild -m 2GB .
-    docker run --rm -v h:\dev\ovrly:c:\workspace ovrlybuild .\.ci\build.ps1
+The prebuilt container is available on dockerhub in the `joshperry/ovrly` repo. The latest can be grabbed with a simple `docker pull joshperry/ovrly`.
+
+    docker build -t joshperry/ovrly -m 2GB .
+    docker run --rm -v h:\dev\ovrly:c:\workspace joshperry/ovrly .\.ci\build.ps1
 
 ## Building ZMQ Lib
 
