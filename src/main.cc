@@ -20,11 +20,15 @@
  */
 extern "C"
 {
-	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
-	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+	DLLEXPORT unsigned int NvOptimusEnablement = 0x00000001;
+	DLLEXPORT int AmdPowerXpressRequestHighPerformance = 1;
 }
 
+#ifdef OS_WIN
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
+#else
+int main(int argc, char *argv[]) {
+#endif
   // Initialize the logging lib
   ovrly::logging::init();
 
@@ -44,10 +48,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPTSTR, int) {
 
   /* Get the CEF process initialized and executing ASAP */
 
-  CefEnableHighDPISupport();
-
   // Use CEF to parse command-line arguments
+#ifdef OS_WIN
+  CefEnableHighDPISupport();
   CefMainArgs main_args(hInstance);
+#else
+  CefMainArgs main_args(argc, argv);
+#endif
 
   // Create app instance to handle CEF events
   CefRefPtr<CefApp> app(ovrly::process::Create());

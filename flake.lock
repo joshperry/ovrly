@@ -1,0 +1,58 @@
+{
+  "nodes": {
+    "cef": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-sdnSwUKRTxPtsGm0QeUuSPO4AeV0/Mu9POj47En0W7I=",
+        "type": "tarball",
+        "url": "https://cef-builds.spotifycdn.com/cef_binary_111.2.7%2Bgebf5d6a%2Bchromium-111.0.5563.148_linux64_minimal.tar.bz2"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://cef-builds.spotifycdn.com/cef_binary_111.2.7%2Bgebf5d6a%2Bchromium-111.0.5563.148_linux64_minimal.tar.bz2"
+      }
+    },
+    "mathfu": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1652125900,
+        "narHash": "sha256-W2J6J8XJW7yo0rbGTJ4xldobOGiUQ4R1plXDGaw+HTk=",
+        "ref": "refs/heads/master",
+        "rev": "da23a1227bb65fbb7f2f5b6c504fbbdd1dfdab4b",
+        "revCount": 318,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/google/mathfu.git"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/google/mathfu.git"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1680343703,
+        "narHash": "sha256-r9U3n9codXHR+I6zLYbvxaD/2MrJHpPtJWsnCW212js=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "9448487d9f7056253ecadfdab7d7bdc638191de2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "cef": "cef",
+        "mathfu": "mathfu",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

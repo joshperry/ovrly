@@ -60,7 +60,7 @@ set(CEF_LIBCEF_DLL_WRAPPER_PATH "${_CEF_ROOT}/libcef_dll")
 
 # Shared compiler/linker flags.
 list(APPEND CEF_COMPILER_DEFINES
-  # Allow C++ programs to use stdint.h macros specified in the C99 standard that aren't 
+  # Allow C++ programs to use stdint.h macros specified in the C99 standard that aren't
   # in the C++ standard (e.g. UINT8_MAX, INT64_MIN, etc)
   __STDC_CONSTANT_MACROS __STDC_FORMAT_MACROS
   )
@@ -97,11 +97,9 @@ if(OS_LINUX)
     -std=c99                        # Use the C99 language standard
     )
   list(APPEND CEF_CXX_COMPILER_FLAGS
-    -fno-exceptions                 # Disable exceptions
     -fno-rtti                       # Disable real-time type information
     -fno-threadsafe-statics         # Don't generate thread-safe statics
     -fvisibility-inlines-hidden     # Give hidden visibility to inlined class member functions
-    -std=gnu++11                    # Use the C++11 language standard including GNU extensions
     -Wsign-compare                  # Warn about mixed signed/unsigned type comparisons
     )
   list(APPEND CEF_COMPILER_FLAGS_DEBUG
@@ -121,7 +119,7 @@ if(OS_LINUX)
     -pthread                        # Use the pthread library
     -Wl,--disable-new-dtags         # Don't generate new-style dynamic tags in ELF
     -Wl,--fatal-warnings            # Treat warnings as errors
-    -Wl,-rpath,.                    # Set rpath so that libraries can be placed next to the executable
+    -Wl,-rpath='$ORIGIN'            # Set rpath so that libraries can be placed next to the executable
     -Wl,-z,noexecstack              # Mark the stack as non-executable (security feature)
     -Wl,-z,now                      # Resolve symbols on program start instead of on first use (security feature)
     -Wl,-z,relro                    # Mark relocation sections as read-only (security feature)
@@ -218,18 +216,18 @@ if(OS_LINUX)
     libcef.so
     libEGL.so
     libGLESv2.so
+    libvk_swiftshader.so
+    libvulkan.so.1
     snapshot_blob.bin
     v8_context_snapshot.bin
-    swiftshader
+    vk_swiftshader_icd.json
     )
 
   # List of CEF resource files.
   set(CEF_RESOURCE_FILES
-    cef.pak
-    cef_100_percent.pak
-    cef_200_percent.pak
-    cef_extensions.pak
-    devtools_resources.pak
+    chrome_100_percent.pak
+    chrome_200_percent.pak
+    resources.pak
     icudtl.dat
     locales
     )
@@ -267,7 +265,6 @@ if(OS_MACOSX)
     -std=c99                        # Use the C99 language standard
     )
   list(APPEND CEF_CXX_COMPILER_FLAGS
-    -fno-exceptions                 # Disable exceptions
     -fno-rtti                       # Disable real-time type information
     -fno-threadsafe-statics         # Don't generate thread-safe statics
     -fobjc-call-cxx-cdtors          # Call the constructor/destructor of C++ instance variables in ObjC objects
@@ -449,7 +446,6 @@ if(OS_WINDOWS)
     WINVER=0x0601 _WIN32_WINNT=0x601  # Targeting Windows 7
     NOMINMAX                          # Use the standard's templated min/max
     WIN32_LEAN_AND_MEAN               # Exclude less common API declarations
-    _HAS_EXCEPTIONS=0                 # Disable exceptions
     )
   list(APPEND CEF_COMPILER_DEFINES_RELEASE
     NDEBUG _NDEBUG                    # Not a debug build

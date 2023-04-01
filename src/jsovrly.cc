@@ -11,7 +11,8 @@
 #include <string>
 #include <functional>
 #include <thread>
-#include "zmq.hpp"
+
+#include <zmq.hpp>
 
 #include "appovrly.h"
 #include "webovrly.h"
@@ -185,7 +186,7 @@ namespace {
 
       // Serialize the data and send it as the envelope body
       auto msg = getZmqMessage(data);
-      zsock_->send(std::move(msg));
+      zsock_->send(std::move(msg), zmq::send_flags::none);
     } catch(zmq::error_t &err) {
       logger::error("Sending zmq message failed: {}", err.what());
     }

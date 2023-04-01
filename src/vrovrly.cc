@@ -111,6 +111,9 @@ namespace {
             }
             */
             break;
+
+          default:
+            break;
           }
 
           continue; // Continue loop until no events are pending
@@ -139,13 +142,13 @@ namespace {
   }
 
   // A single graphics context to share between all overlays
-  std::shared_ptr<d3d::Device> d3dev_;
+  gfx::device_ptr gfxdev_;
 
   void onBrowserProcess(process::Browser& browser) {
     // Init VR on the browser main thread, all events should be raised on this thread
     // also serializes creation of overlies until both the browser and VR stacks are ready
     browser.SubOnContextInitialized.attach([]() {
-      d3dev_ = d3d::create_device();
+      gfxdev_ = gfx::create_device();
       initVR();
     });
   }
@@ -230,9 +233,12 @@ TrackedDevice::TrackedDevice(unsigned slot) : slot(slot) {
   case ovr::TrackedDeviceClass_GenericTracker:
     logger::info("OPENVR found generic tracker");
     break;
-    
+
   case ovr::TrackedDeviceClass_TrackingReference:
     logger::info("OPENVR found tracking reference");
+    break;
+  default:
+    logger::info("OPENVR unhandled tracking event");
     break;
   }
 
@@ -255,10 +261,9 @@ TrackedDevice::TrackedDevice(unsigned slot) : slot(slot) {
   if(err == ovr::ETrackedPropertyError::TrackedProp_Success) { serial = converter.from_bytes(buf); }
 }
 
-Overlay::Overlay(const std::string &name, mathfu::vec2 size, BufferFormat format) :
-  vroverlay_(ovr::k_ulOverlayHandleInvalid),
+Overlay::Overlay(const std::string &name, mathfu::vec2 size) :
   size_(size),
-  texformat_(format)
+  vroverlay_(ovr::k_ulOverlayHandleInvalid)
 {
   auto ovrl = ovr::VROverlay();
   if(ovrl) {
@@ -283,7 +288,7 @@ Overlay::Overlay(const std::string &name, mathfu::vec2 size, BufferFormat format
   }
 
   // Set the openvr static texture definition info
-  vrtexture_.eType = ovr::TextureType_DirectX;
+  vrtexture_.eType = gfx::TextureType;
   vrtexture_.eColorSpace = ovr::ColorSpace_Gamma;
 }
 
@@ -312,8 +317,8 @@ void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty
 
   // TODO: Handle dirty rect optimization
 
-  // Copy data from the chromium paint buffer to the texture
-  d3d::ScopedBinder<d3d::Texture2D> binder(d3dev_->immediate_context(), texture_);
+  // Bind and copy data from the chromium paint buffer to the texture
+  gfx::ScopedBinder<gfx::tex2> binder(gfxdev_, texture_);
   texture_->copy_from(
     buffer,
     texture_->width() * 4,
@@ -325,10 +330,10 @@ void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty
 }
 
 void Overlay::updateTargetSize(mathfu::vec2i size) {
-  // Create a new chromium-compatible(BGRA32) D3D texture of the correct dims
-  texture_ = d3dev_->create_texture(size.x, size.y, static_cast<DXGI_FORMAT>(texformat_), nullptr, 0);
-  // Point the openvr texture descriptor at the d3d texture
-  vrtexture_.handle = texture_->texture_.get();
+  // Create a new chromium-compatible(BGRA32) D3D/GL texture of the correct dims
+  texture_ = gfxdev_->create_texture(size.x, size.y);
+  // Point the openvr texture descriptor at the d3d/GL texture
+  vrtexture_.handle = texture_->ovr_handle();
 }
 
 Event<> OnReady;

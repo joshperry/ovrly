@@ -10,7 +10,7 @@
 
 #include <sstream>
 #include <string>
-#include "include/base/cef_bind.h"
+#include "include/base/cef_callback.h"
 #include "include/cef_app.h"
 #include "include/cef_parser.h"
 #include "include/views/cef_browser_view.h"
@@ -149,8 +149,8 @@ namespace {
     void CloseAllBrowsers(bool force_close) {
       if (!CefCurrentlyOn(TID_UI)) {
         // Execute on the UI thread.
-        CefPostTask(TID_UI, base::Bind(&uiclient::CloseAllBrowsers, this,
-                                       force_close));
+        CefPostTask(TID_UI, CefCreateClosureTask(base::BindOnce(&uiclient::CloseAllBrowsers, this,
+                                       force_close)));
         return;
       }
 
@@ -208,7 +208,7 @@ namespace {
     explicit OvrlyWindowDelegate(CefRefPtr<CefBrowserView> browser_view)
       : browser_view_(browser_view) {}
 
-    void OnWindowCreated(CefRefPtr<CefWindow> window) OVERRIDE {
+    void OnWindowCreated(CefRefPtr<CefWindow> window) override {
       // Add the browser view and show the window.
       window->AddChildView(browser_view_);
       window->Show();
@@ -217,11 +217,11 @@ namespace {
       browser_view_->RequestFocus();
     }
 
-    void OnWindowDestroyed(CefRefPtr<CefWindow> window) OVERRIDE {
+    void OnWindowDestroyed(CefRefPtr<CefWindow> window) override {
       browser_view_ = nullptr;
     }
 
-    bool CanClose(CefRefPtr<CefWindow> window) OVERRIDE {
+    bool CanClose(CefRefPtr<CefWindow> window) override {
       // Allow the window to close if the browser says it's OK.
       CefRefPtr<CefBrowser> browser = browser_view_->GetBrowser();
       if (browser)
@@ -229,7 +229,7 @@ namespace {
       return true;
     }
 
-    CefSize GetPreferredSize(CefRefPtr<CefView> view) OVERRIDE {
+    CefSize GetPreferredSize(CefRefPtr<CefView> view) override {
       return CefSize(800, 600);
     }
 
@@ -246,7 +246,7 @@ namespace {
 
     bool OnPopupBrowserViewCreated(CefRefPtr<CefBrowserView> browser_view,
       CefRefPtr<CefBrowserView> popup_browser_view,
-      bool is_devtools) OVERRIDE {
+      bool is_devtools) override {
       // Create a new top-level Window for the popup. It will show itself after
       // creation.
       CefWindow::CreateTopLevelWindow(

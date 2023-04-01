@@ -132,7 +132,7 @@ namespace {
   class WebOverlay : public vr::Overlay {
     public:
       WebOverlay(const std::string &name, mathfu::vec2 size, CefRefPtr<WebClient> client) :
-        vr::Overlay(name, size, vr::BufferFormat::BGRA), // chromium renders in the BGRA format
+        vr::Overlay(name, size),
         client_(client)
       {
         client->GetHandler()->SetPaintCallback([this](auto rects, auto buffer) {
@@ -195,7 +195,7 @@ std::unique_ptr<vr::Overlay> Create(const std::string &name, mathfu::vec2 size, 
   // Create a windowless browser for off-screen rendering
   CefWindowInfo window_info;
   window_info.windowless_rendering_enabled = true;
-  window_info.SetAsWindowless(nullptr);
+  window_info.SetAsWindowless(0);
 
   // Specify the chromium render framerate
   CefBrowserSettings settings;

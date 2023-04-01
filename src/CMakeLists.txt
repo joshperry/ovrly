@@ -1,62 +1,44 @@
 set(THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty)
 set(WINDOWS_PATH_SUFFIXES win64 Win64 x64)
+set(LINUX_PATH_SUFFIXES linux64)
+
+find_library(ZMQ_LIB NAMES zmq)
+find_library(FMT_LIB NAMES fmt)
+find_library(SPDLOG_LIB NAMES spdlog)
+find_library(GLFW_LIB NAMES glfw)
 
 ## OpenVR lib paths
-set(OPENVR_BINARY_DIR ${THIRDPARTY_DIR}/openvr/bin/win64)
-set(OPENVR_BINARY_FILES openvr_api.dll)
 find_library(OPENVR_LIBRARIES
   NAMES
     openvr_api
   PATHS
     ${THIRDPARTY_DIR}/openvr/lib
   PATH_SUFFIXES
-    ${WINDOWS_PATH_SUFFIXES}
+    ${WINDOWS_PATH_SUFFIXES} ${LINUX_PATH_SUFFIXES}
   NO_DEFAULT_PATH
   NO_CMAKE_FIND_ROOT_PATH
 )
 set(OPENVR_INCLUDE_DIR ${THIRDPARTY_DIR}/openvr/headers)
-
-## zeromq lib paths
-set(ZMQ_BINARY_DIR ${THIRDPARTY_DIR}/zmq/bin/win64)
-set(ZMQ_BINARY_FILES libzmq-v142-mt-4_3_2.dll)
-find_library(ZMQ_LIBRARIES
-  NAMES
-    libzmq-v142-mt-4_3_2
-  PATHS
-    ${THIRDPARTY_DIR}/zmq/lib
-  PATH_SUFFIXES
-    ${WINDOWS_PATH_SUFFIXES}
-  NO_DEFAULT_PATH
-  NO_CMAKE_FIND_ROOT_PATH
-)
-set(ZMQ_INCLUDE_DIR ${THIRDPARTY_DIR}/zmq/include)
-message(${ZMQ_LIBRARIES})
-
-## zmq cpp binding header-only library
-set(CPPZMQ_INCLUDE_DIR ${THIRDPARTY_DIR}/cppzmq)
+message(${OPENVR_LIBRARIES})
+get_filename_component(OPENVR_LIB_DIR ${OPENVR_LIBRARIES} DIRECTORY)
+get_filename_component(OPENVR_LIB_FILES ${OPENVR_LIBRARIES} NAME)
+message(${OPENVR_LIB_DIR})
+message(${OPENVR_LIB_FILES})
 
 ## MathFU Library with test and benchmark builds disabled
 set(mathfu_build_benchmarks OFF CACHE BOOL "")
 set(mathfu_build_tests OFF CACHE BOOL "")
-add_subdirectory($ENV{MATHFU_ROOT} mathfu)
+add_subdirectory(${MATHFU_DIR} mathfu)
 
 ## Generated GLAD OpenGL loader
 set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
 
-## Spdlog header-only logging library
-set(SPDLOG_INCLUDE_DIR ${THIRDPARTY_DIR}/spdlog/include)
-
-## header-only json library
-set(JSON_INCLUDE_DIR ${THIRDPARTY_DIR}/nlohmann)
-
-## Project Source files
-set(ALL_SRCS
-	app.rc
+## Shared Project Source files
+set(SHARED_SRCS
 	appovrly.cc
 	appovrly.h
-  d3d.cc
-  d3d.h
   events.h
+  gfx.cc
   jsovrly.cc
   jsovrly.h
   logging.cc
@@ -72,17 +54,11 @@ set(ALL_SRCS
   serralize.hpp
 	uiovrly.cc
 	uiovrly.h
-	uiovrly_win.cc
   vrovrly.cc
   vrovrly.h
   webovrly.cc
   webovrly.h
 )
-
-if(MSVC)
-  #Fix nonconformant __cplusplus define
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
-endif()
 
 # Logical target used to link the libcef library.
 ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
@@ -91,30 +67,45 @@ ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
 SET_CEF_TARGET_OUT_DIR()
 
 #include the subdirectory containing our libs
-include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR} ${SPDLOG_INCLUDE_DIR} ${JSON_INCLUDE_DIR} ${ZMQ_INCLUDE_DIR} ${CPPZMQ_INCLUDE_DIR})
+include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
 
 #indicate the entry point for the executable
-add_executable (ovrly WIN32 ${ALL_SRCS})
+if(OS_WINDOWS)
+  #Fix nonconformant __cplusplus define
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
+  endif()
+  set(PLAT_SRCS
+    app.rc
+    gfx_d3d.cc
+    uiovrly_win.cc
+  )
+  add_executable (ovrly WIN32 ${SHARED_SRCS} ${PLAT_SRCS})
+endif()
+if(OS_LINUX)
+  set(PLAT_SRCS
+    gfx_ogl.cc
+    uiovrly_linux.cc
+  )
+  add_executable(ovrly ${SHARED_SRCS} ${PLAT_SRCS})
+endif()
+
 SET_EXECUTABLE_TARGET_PROPERTIES(ovrly)
 
 # Configure flags for referencing mathfu
 mathfu_configure_flags(ovrly)
 
-## Set C++17 standards mode
-set_property(TARGET ovrly PROPERTY CXX_STANDARD 17)
-set_property(TARGET ovrly PROPERTY CXX_STANDARD_REQUIRED ON)
-
-source_group("src" FILES ${ALL_SRCS})
+source_group("src" FILES ${SHARED_SRCS})
+source_group("platsrc" FILES ${PLAT_SRCS})
 
 add_dependencies(ovrly libcef_dll_wrapper)
 
 # Indicate which libraries to include during the link process.
-target_link_libraries (ovrly d3d11.lib Shlwapi.lib libcef_lib libcef_dll_wrapper ${OPENVR_LIBRARIES} ${ZMQ_LIBRARIES})
+target_link_libraries (ovrly PRIVATE ${OPENVR_LIBRARIES} ${ZMQ_LIB} ${FMT_LIB} ${SPDLOG_LIB} ${GLFW_LIB} libcef_lib libcef_dll_wrapper glib-2.0 nss3 nspr4 atk-1.0 cups drm Xcomposite Xdamage Xext Xfixes dbus-1 gbm expat xcb xkbcommon pango-1.0 cairo asound)
 
 COPY_FILES(ovrly "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
 COPY_FILES(ovrly "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
-COPY_FILES(ovrly "${OPENVR_BINARY_FILES}" "${OPENVR_BINARY_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
-COPY_FILES(ovrly "${ZMQ_BINARY_FILES}" "${ZMQ_BINARY_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
+COPY_FILES(ovrly "${OPENVR_LIB_FILES}" "${OPENVR_LIB_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
 
 # copy runtime resources to output directory
 file(GLOB_RECURSE ovrly_resources RELATIVE ${CMAKE_SOURCE_DIR}/resource ${CMAKE_SOURCE_DIR}/resource/*)
@@ -125,3 +116,7 @@ foreach(_resfile ${ovrly_resources})
 					${CMAKE_SOURCE_DIR}/resource/${_resfile}
 					${TARGET_OUTPUT_DIRECTORY}/resource/${_resfile})
 endforeach()
+
+install(TARGETS ovrly RUNTIME)
+install(DIRECTORY ${TARGET_OUTPUT_DIRECTORY}/ TYPE BIN)
+install(CODE "MESSAGE(\"shits been installed.\")")

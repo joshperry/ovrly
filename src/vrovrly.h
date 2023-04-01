@@ -13,8 +13,8 @@
 #include "mathfu/glsl_mappings.h"
 
 #include "events.h"
-#include "d3d.h"
 
+#include "gfx.h"
 
 /**
  * The purpose of this module is to interact with the vr API to initialize it and
@@ -27,12 +27,7 @@
 
 namespace ovrly { namespace vr {
 
-  /** The pixel datatype that the overlay subclass provides for rendering */
-  // FIXME: Hard dep on d3d
-  enum class BufferFormat {
-    RGBA = DXGI_FORMAT_R8G8B8A8_UNORM,
-    BGRA = DXGI_FORMAT_B8G8R8A8_UNORM,
-  };
+ /** The pixel datatype that the overlay subclass provides for rendering */
 
  /**
  * A base class that represents the concept of an overlay running in the 3d space
@@ -42,7 +37,7 @@ namespace ovrly { namespace vr {
  */
   class Overlay {
     public:
-      Overlay(const std::string &name, mathfu::vec2 size, BufferFormat format);
+      Overlay(const std::string &name, mathfu::vec2 size);
       virtual ~Overlay();
 
       /**
@@ -69,7 +64,7 @@ namespace ovrly { namespace vr {
        * with a list of dirty rectangles.
        *
        * Only buffers with 32-bit pixels are supported, in one of the formats
-       * specified in `BufferFormat`.
+       * specified in `gfx::BufferFormat`.
        */
       void render(const void *buffer, const std::vector<mathfu::recti> &dirty);
 
@@ -100,8 +95,7 @@ namespace ovrly { namespace vr {
 
     private:
       mathfu::vec2 size_;
-      BufferFormat texformat_;
-      std::shared_ptr<d3d::Texture2D> texture_;
+      ::gfx::tex2_ptr texture_;
       ::vr::Texture_t vrtexture_;
       ::vr::VROverlayHandle_t vroverlay_;
       ::vr::HmdMatrix34_t transform_{ { {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0} } };
