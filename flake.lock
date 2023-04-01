@@ -45,11 +45,28 @@
         "type": "github"
       }
     },
+    "openvr": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1680048338,
+        "narHash": "sha256-NCi/4x90quI2v+exUpSTQbyoJsOKf4k6cfQcK7GqLVg=",
+        "owner": "ValveSoftware",
+        "repo": "openvr",
+        "rev": "03897eb12fa9de5cd90bf2beee36866a202afed0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ValveSoftware",
+        "repo": "openvr",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "cef": "cef",
         "mathfu": "mathfu",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "openvr": "openvr"
       }
     }
   },

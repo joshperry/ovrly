@@ -12,7 +12,7 @@
 #include "logging.h"
 
 #define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.hpp>
+#include "gl.hpp"
 
 namespace gfx {
   const vr::ETextureType TextureType = vr::TextureType_OpenGL;

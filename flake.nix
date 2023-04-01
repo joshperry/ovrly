@@ -9,7 +9,10 @@
   inputs.mathfu.url = git+https://github.com/google/mathfu.git?submodules=1;
   inputs.mathfu.flake = false;
 
-  outputs = { self, nixpkgs, cef, mathfu }: {
+  inputs.openvr.url = github:ValveSoftware/openvr;
+  inputs.openvr.flake = false;
+
+  outputs = { self, nixpkgs, cef, mathfu, openvr }: {
     packages.x86_64-linux.default =
       with import nixpkgs { system = "x86_64-linux"; };
       stdenv.mkDerivation {
@@ -18,7 +21,6 @@
 
         nativeBuildInputs = [
           cmake
-          ninja
         ];
 
         buildInputs = [
@@ -58,6 +60,7 @@
         cmakeFlags = [
           "-DCEF_ROOT=${cef}"
           "-DMATHFU_DIR=${mathfu}"
+          "-DOPENVR_DIR=${openvr}"
           "-DPROJECT_ARCH=x86_64"
           "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON"
           "-DCMAKE_CXX_STANDARD=17"

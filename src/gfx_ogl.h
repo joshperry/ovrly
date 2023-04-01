@@ -12,7 +12,7 @@
 #include <string>
 #include <thread>
 
-#include <glad/gl.hpp>
+#include "gl.hpp"
 #include <GLFW/glfw3.h>
 
 #include "openvr.h"

@@ -1,4 +1,3 @@
-set(THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty)
 set(WINDOWS_PATH_SUFFIXES win64 Win64 x64)
 set(LINUX_PATH_SUFFIXES linux64)
 
@@ -12,13 +11,13 @@ find_library(OPENVR_LIBRARIES
   NAMES
     openvr_api
   PATHS
-    ${THIRDPARTY_DIR}/openvr/lib
+    ${OPENVR_DIR}/lib
   PATH_SUFFIXES
     ${WINDOWS_PATH_SUFFIXES} ${LINUX_PATH_SUFFIXES}
   NO_DEFAULT_PATH
   NO_CMAKE_FIND_ROOT_PATH
 )
-set(OPENVR_INCLUDE_DIR ${THIRDPARTY_DIR}/openvr/headers)
+set(OPENVR_INCLUDE_DIR ${OPENVR_DIR}/headers)
 message(${OPENVR_LIBRARIES})
 get_filename_component(OPENVR_LIB_DIR ${OPENVR_LIBRARIES} DIRECTORY)
 get_filename_component(OPENVR_LIB_FILES ${OPENVR_LIBRARIES} NAME)
@@ -29,9 +28,6 @@ message(${OPENVR_LIB_FILES})
 set(mathfu_build_benchmarks OFF CACHE BOOL "")
 set(mathfu_build_tests OFF CACHE BOOL "")
 add_subdirectory(${MATHFU_DIR} mathfu)
-
-## Generated GLAD OpenGL loader
-set(GLAD_INCLUDE_DIR ${THIRDPARTY_DIR}/glad/include)
 
 ## Shared Project Source files
 set(SHARED_SRCS
