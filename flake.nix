@@ -3,6 +3,7 @@
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
 
+  # fixme: make this dynamic based on debug/release build (size diff ~300MB, minimal has no debug symbols or libs)
   inputs.cef.url = "https://cef-builds.spotifycdn.com/cef_binary_111.2.7+gebf5d6a+chromium-111.0.5563.148_linux64.tar.bz2";
   inputs.cef.flake = false;
 
@@ -47,7 +48,7 @@
           };
 
           cmakeFlags = [
-            "-DCMAKE_BUILD_TYPE=Debug"
+            "-DCMAKE_BUILD_TYPE=Debug" # fixme: make this switchable
             "-DCEF_ROOT=${cef}"
             "-DMATHFU_DIR=${mathfu}"
             "-DOPENVR_DIR=${openvr}"
@@ -87,7 +88,7 @@
         OPENVR_DIR=openvr;
 
         cmakeFlags = [
-          "-DCMAKE_BUILD_TYPE=Debug"
+          "-DCMAKE_BUILD_TYPE=Debug" # fixme: make this switchable
           "-DCEF_ROOT=${cef}"
           "-DMATHFU_DIR=${mathfu}"
           "-DOPENVR_DIR=${openvr}"
