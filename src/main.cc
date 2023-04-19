@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
   // Setup CEF initialization settings
   CefSettings settings;
   settings.remote_debugging_port = 8088;
+  //settings.CefCommandLineArgs.Add("remote-allow-origins", "http://localhost:8080");
   settings.no_sandbox = true;
   settings.windowless_rendering_enabled = true;
 

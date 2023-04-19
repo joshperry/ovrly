@@ -214,7 +214,7 @@ macro(COPY_MACOSX_RESOURCES resource_list prefix_list target source_dir app_path
         # Create the target directory.
         COMMAND ${CMAKE_COMMAND} -E make_directory "${TARGET_DIRECTORY}"
         # Compile the XIB file to a NIB.
-        COMMAND /usr/bin/ibtool --output-format binary1 --compile "${TARGET_PATH}" "${SOURCE_PATH}"
+        COMMAND /var/empty/bin/ibtool --output-format binary1 --compile "${TARGET_PATH}" "${SOURCE_PATH}"
         VERBATIM
         )
     elseif(NOT ${TARGET_FILENAME} STREQUAL "Info.plist")

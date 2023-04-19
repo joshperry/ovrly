@@ -56,14 +56,8 @@ set(SHARED_SRCS
   webovrly.h
 )
 
-# Logical target used to link the libcef library.
-ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
-
-# Determine the target output directory.
-SET_CEF_TARGET_OUT_DIR()
-
 #include the subdirectory containing our libs
-include_directories(${_CEF_ROOT} ${OPENVR_INCLUDE_DIR} ${GLAD_INCLUDE_DIR})
+include_directories(${OPENVR_INCLUDE_DIR})
 
 #indicate the entry point for the executable
 if(OS_WINDOWS)
@@ -97,22 +91,24 @@ source_group("platsrc" FILES ${PLAT_SRCS})
 add_dependencies(ovrly libcef_dll_wrapper)
 
 # Indicate which libraries to include during the link process.
-target_link_libraries (ovrly PRIVATE ${OPENVR_LIBRARIES} ${ZMQ_LIB} ${FMT_LIB} ${SPDLOG_LIB} ${GLFW_LIB} libcef_lib libcef_dll_wrapper glib-2.0 nss3 nspr4 atk-1.0 cups drm Xcomposite Xdamage Xext Xfixes dbus-1 gbm expat xcb xkbcommon pango-1.0 cairo asound)
+target_link_libraries (ovrly PRIVATE ${OPENVR_LIBRARIES} ${ZMQ_LIB} ${FMT_LIB} ${SPDLOG_LIB} ${GLFW_LIB} libcef_lib libcef_dll_wrapper glib-2.0 nss3 nspr4 atk-1.0 cups drm Xcomposite Xdamage Xext Xfixes dbus-1 gbm expat xcb xkbcommon pango-1.0 cairo asound va)
 
-COPY_FILES(ovrly "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
-COPY_FILES(ovrly "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
-COPY_FILES(ovrly "${OPENVR_LIB_FILES}" "${OPENVR_LIB_DIR}" "${TARGET_OUTPUT_DIRECTORY}")
+# Copy OpenVR lib to CEF's output dir
+COPY_FILES(ovrly "${OPENVR_LIB_FILES}" "${OPENVR_LIB_DIR}" "${CEF_TARGET_OUT_DIR}")
 
-# copy runtime resources to output directory
+# Copy static bin/resource files to CEF's output dir
+COPY_FILES(ovrly "${CEF_BINARY_FILES}" "${CEF_BINARY_DIR}" "${CEF_TARGET_OUT_DIR}")
+COPY_FILES(ovrly "${CEF_RESOURCE_FILES}" "${CEF_RESOURCE_DIR}" "${CEF_TARGET_OUT_DIR}")
+
+# copy ovrly runtime resources to CEF's output directory
 file(GLOB_RECURSE ovrly_resources RELATIVE ${CMAKE_SOURCE_DIR}/resource ${CMAKE_SOURCE_DIR}/resource/*)
 foreach(_resfile ${ovrly_resources})
 	add_custom_command(
 			TARGET ovrly POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy
 					${CMAKE_SOURCE_DIR}/resource/${_resfile}
-					${TARGET_OUTPUT_DIRECTORY}/resource/${_resfile})
+          ${CEF_TARGET_OUT_DIR}/resource/${_resfile})
 endforeach()
 
+# Install the ovrly app binary
 install(TARGETS ovrly RUNTIME)
-install(DIRECTORY ${TARGET_OUTPUT_DIRECTORY}/ TYPE BIN)
-install(CODE "MESSAGE(\"shits been installed.\")")

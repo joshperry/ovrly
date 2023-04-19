@@ -101,10 +101,12 @@ if(OS_LINUX)
     -fno-threadsafe-statics         # Don't generate thread-safe statics
     -fvisibility-inlines-hidden     # Give hidden visibility to inlined class member functions
     -Wsign-compare                  # Warn about mixed signed/unsigned type comparisons
+
     )
   list(APPEND CEF_COMPILER_FLAGS_DEBUG
     -O0                             # Disable optimizations
     -g                              # Generate debug information
+    -U_FORTIFY_SOURCE               # Can't fortify with -O0
     )
   list(APPEND CEF_COMPILER_FLAGS_RELEASE
     -O2                             # Optimize for maximum speed
@@ -202,7 +204,7 @@ if(OS_LINUX)
 
   # CEF directory paths.
   set(CEF_RESOURCE_DIR        "${_CEF_ROOT}/Resources")
-  set(CEF_BINARY_DIR          "${_CEF_ROOT}/${CMAKE_BUILD_TYPE}")
+  set(CEF_BINARY_DIR          "${_CEF_ROOT}/$<CONFIGURATION>")
   set(CEF_BINARY_DIR_DEBUG    "${_CEF_ROOT}/Debug")
   set(CEF_BINARY_DIR_RELEASE  "${_CEF_ROOT}/Release")
 

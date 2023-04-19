@@ -55,6 +55,9 @@ namespace ogl {
 
 		void flush();
 
+    GladGLContext *gl() {
+      return &context_;
+    }
   private:
     GladGLContext context_;
 	};
@@ -80,21 +83,29 @@ namespace ogl {
 	class tex2
 	{
 	public:
-    tex2(uint tex);
+    tex2(device *device, int width, int height);
 
     // Used to un/bind the texture to a context to get it filled
 		void bind(Context_ptr const& ctx);
 		void unbind();
 
     // Size in texels of the texture that the browser is renderd into
-		uint32_t width() const;
-		uint32_t height() const;
+		int width() const;
+		int height() const;
 
     // A handle in the format expected by openvr overlay texture
     void* ovr_handle() const;
 
     // Used for copying the CEF client area into a texture
-		void copy_from(const void* buffer, uint32_t stride, uint32_t rows);
+		void copy_from(const void* buffer);
+
+    ~tex2();
+  private:
+    device *device_;
+    GLuint texture_;
+    int width_;
+    int height_;
+    Context_ptr context_;
 	};
 
 	template<class T>

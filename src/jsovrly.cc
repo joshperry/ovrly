@@ -14,11 +14,14 @@
 
 #include <zmq.hpp>
 
+#include "openvr.h"
 #include "appovrly.h"
 #include "webovrly.h"
 #include "uiovrly.h"
 #include "logging.h"
 #include "serralize.hpp"
+
+namespace ovr = ::vr;
 
 using namespace std::string_literals;
 auto const readonly = CefV8Value::PropertyAttribute::V8_PROPERTY_ATTRIBUTE_READONLY;
@@ -29,9 +32,11 @@ namespace ovrly { namespace js {
 namespace {
 
   // ZMQ context for browser _and_ render process zmq connections
-  const char* ZMQ_URL = "tcp://127.0.0.1:9995";
   zmq::context_t zctx_{ 1 };
+  const char* ZMQ_URL = "tcp://127.0.0.1:9995";
   std::unique_ptr<zmq::socket_t> zsock_;
+  const char* ZMQ_RPC_URL = "tcp://127.0.0.1:9996";
+  std::unique_ptr<zmq::socket_t> rpcsock_;
 
   // Thread for running the zmq receive loop
   std::unique_ptr<std::thread> zloop_;
@@ -47,7 +52,72 @@ namespace {
       } catch(zmq::error_t& err) {
         logger::error("Problem binding zmq listener: {}", err.what());
       }
+
+      // And the zmq rep socket
+      rpcsock_ = std::make_unique<zmq::socket_t>(zctx_, zmq::socket_type::rep);
+      try {
+        rpcsock_->bind(ZMQ_RPC_URL);
+      } catch(zmq::error_t& err) {
+        logger::error("Problem binding zmq rpc listener: {}", err.what());
+      }
     });
+  }
+
+  void loadDev(CefRefPtr<CefV8Value> const& jsdevs, vr::TrackedDevice &device) {
+    const wchar_t *name = L"none";
+
+    switch(device.type) {
+    case ovr::TrackedDeviceClass_HMD:
+      name = L"hmd";
+      break;
+    case ovr::TrackedDeviceClass_Controller:
+      switch(device.role.value()) {
+        case ovr::TrackedControllerRole_LeftHand:
+          name = L"left";
+          break;
+        case ovr::TrackedControllerRole_RightHand:
+          name = L"right";
+          break;
+        case ovr::TrackedControllerRole_Invalid:
+          return;
+        default:
+          // Not right or left, don't export
+          logger::debug("Skipped controller {}", device.role.value());
+          return;
+      }
+      break;
+    default:
+      // If it's not the HMD or controllers, let's not export
+      return;
+    }
+
+    if(!jsdevs->HasValue(name)) {
+      auto dev = CefV8Value::CreateObject(nullptr, nullptr);
+      dev->SetValue(L"manufacturer", CefV8Value::CreateString(device.manufacturer), readonly);
+      dev->SetValue(L"model", CefV8Value::CreateString(device.model), readonly);
+      dev->SetValue(L"serial", CefV8Value::CreateString(device.serial), readonly);
+      jsdevs->SetValue(name, dev, readonly);
+    }
+
+    auto dev = jsdevs->GetValue(name);
+    dev->SetValue(L"connected", CefV8Value::CreateBool(device.connected), readonly);
+
+    if(device.pose) {
+      if(!dev->HasValue(L"pose")) {
+        // ovrly.devices.hmd.pose.matrix
+        auto devmat = CefV8Value::CreateArray(12);
+        auto devpose = CefV8Value::CreateObject(nullptr, nullptr);
+        devpose->SetValue(L"matrix", devmat, readonly);
+        dev->SetValue(L"pose", devpose, readonly);
+      }
+
+      auto devpose = dev->GetValue(L"pose");
+      auto devmat = devpose->GetValue(L"matrix");
+
+      for(int i = 0; i < 12; i++) {
+        devmat->SetValue(i, CefV8Value::CreateDouble(device.pose.value().matrix[i]));
+      }
+    }
   }
 
   // When the render process is being created
@@ -64,18 +134,21 @@ namespace {
       ovrly->SetValue(L"initialized", CefV8Value::CreateBool(true), readonly);
       jsctx->GetGlobal()->SetValue(L"ovrly", ovrly, readonly);
 
+      // Get the bound info from the VR subsystem
+
+
       // Start a thread to receive zmq IPC messages
       zloop_ = std::make_unique<std::thread>([jsctx]() {
         logger::debug("Spawned ZMQ message loop thread");
 
         try {
+          // Setup and connect the zmq sub socket
+          zsock_ = std::make_unique<zmq::socket_t>(zctx_, zmq::socket_type::sub);
+          zsock_->connect(ZMQ_URL);
+
+          zsock_->set(zmq::sockopt::subscribe, "vr.devices");
+
           while(1) {
-            // Setup and connect the zmq sub socket
-            zsock_ = std::make_unique<zmq::socket_t>(zctx_, zmq::socket_type::sub);
-            zsock_->connect(ZMQ_URL);
-
-            zsock_->set(zmq::sockopt::subscribe, "vr.devices");
-
             // See if there is a message waiting
             auto msg = std::make_shared<zmq::message_t>();
             auto result = zsock_->recv(*msg);
@@ -97,39 +170,17 @@ namespace {
 
                   auto ovrly = jsctx->GetGlobal()->GetValue(L"ovrly");
                   if(!ovrly->HasValue(L"devices")) {
-                    auto hmdev = CefV8Value::CreateObject(nullptr, nullptr);
-                    hmdev->SetValue(L"manufacturer", CefV8Value::CreateString(devices[0].manufacturer), readonly);
-                    hmdev->SetValue(L"model", CefV8Value::CreateString(devices[0].model), readonly);
-                    hmdev->SetValue(L"serial", CefV8Value::CreateString(devices[0].serial), readonly);
-
                     // ovrly.devices.hmd
                     auto jsdevs = CefV8Value::CreateObject(nullptr, nullptr);
-                    jsdevs->SetValue(L"hmd", hmdev, readonly);
 
                     // ovrly.devices
                     ovrly->SetValue(L"devices", jsdevs, readonly);
                   }
 
                   auto jsdevs = ovrly->GetValue(L"devices");
-                  auto hmdev = jsdevs->GetValue(L"hmd");
 
-                  hmdev->SetValue(L"connected", CefV8Value::CreateBool(devices[0].connected), readonly);
-
-                  if(devices[0].pose) {
-                    if(!hmdev->HasValue(L"pose")) {
-                      // ovrly.devices.hmd.pose.matrix
-                      auto hmdevmat = CefV8Value::CreateArray(12);
-                      auto hmdevpose = CefV8Value::CreateObject(nullptr, nullptr);
-                      hmdevpose->SetValue(L"matrix", hmdevmat, readonly);
-                      hmdev->SetValue(L"pose", hmdevpose, readonly);
-                    }
-
-                    auto hmdevpose = hmdev->GetValue(L"pose");
-                    auto hmdevmat = hmdevpose->GetValue(L"matrix");
-
-                    for(int i = 0; i < 12; i++) {
-                      hmdevmat->SetValue(i, CefV8Value::CreateDouble(devices[0].pose.value().matrix[i]));
-                    }
+                  for(auto &dev: devices) {
+                    loadDev(jsdevs, dev);
                   }
 
                   jsctx->Exit();
@@ -197,13 +248,15 @@ namespace {
     publishMessage("vr.devices.updated", *devices.get());
   }
 
-  // When the VR module is ready to go
+  // When the VR module is ready to go, on main thread
   void onVRReady() {
     auto devices = std::make_shared<std::vector<vr::TrackedDevice>>(vr::getDevices());
     sendDevices(devices);
+//    auto playbounds = vr::getPlaybounds();
+//    setPlaybounds(playbounds);
   }
 
-  // When we receive a device state update from the VR module
+  // When we receive a device state update from the VR module, on main thread
   void onDevicesUpdated(std::shared_ptr<const std::vector<vr::TrackedDevice>> devices) {
     sendDevices(devices);
   }

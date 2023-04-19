@@ -11,17 +11,18 @@
 
 #include <sstream>
 #include <thread>
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <locale>
 #include <codecvt>
+#include <ranges>
 
 #include "appovrly.h"
 #include "logging.h"
-#include "ranges.hpp"
 
 namespace ovr = ::vr;
-using namespace Range;
+using namespace std::ranges;
 
 
 namespace ovrly{ namespace vr{
@@ -67,7 +68,7 @@ namespace {
     logger::info("OPENVR Initialized!");
 
     /** Enumerate initial state from tracked VR devices */
-    for(unsigned i: range(ovr::k_unMaxTrackedDeviceCount)) {
+    for(auto i: std::views::iota(0u, ovr::k_unMaxTrackedDeviceCount)) {
       // Create and store device instances for each valid slot
       auto type = ovr::VRSystem()->GetTrackedDeviceClass(i);
       if(type != ovr::ETrackedDeviceClass::TrackedDeviceClass_Invalid) {
@@ -81,38 +82,63 @@ namespace {
 
     // VR event dispatch loop
     loop_ = std::make_unique<std::thread>([vrsys]() {
+      int binding_reloaded = 0;
       ovr::VREvent_t event;
       ovr::TrackedDevicePose_t poses[ovr::k_unMaxTrackedDeviceCount];
       while(!done_) {
         // Get the next event if there is one
         if (ovr::VRSystem()->PollNextEvent(&event, sizeof(event))) {
-          logger::debug("OPENVR event ({}): {}", event.trackedDeviceIndex, ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)));
 
           // Handle device add/remove events
           switch(event.eventType) {
           // Device added
           case ovr::EVREventType::VREvent_TrackedDeviceActivated:
           {
-            logger::debug("OPENVR added activated device");
-            devices_.push_back(TrackedDevice(event.trackedDeviceIndex));
-            maxslot = std::max(maxslot, event.trackedDeviceIndex);
+            // See if this is a device we've seen already
+            auto it = std::find_if(devices_.begin(), devices_.end(),
+                [&event](const TrackedDevice &dev){ return event.trackedDeviceIndex == dev.slot; });
+            if(it == devices_.end()) {
+              logger::debug("OPENVR added activated device {}", event.trackedDeviceIndex);
+              devices_.push_back(TrackedDevice(event.trackedDeviceIndex));
+              maxslot = std::max(maxslot, event.trackedDeviceIndex);
+            }
+          }
+          break;
+          case ovr::EVREventType::VREvent_PropertyChanged:
+          {
+            // See if this is a device we've seen already
+            auto it = std::find_if(devices_.begin(), devices_.end(),
+                [&event](const TrackedDevice &dev){ return event.trackedDeviceIndex == dev.slot; });
+
+            if(it != devices_.end()) {
+              auto fresh = TrackedDevice(it->slot);
+              logger::debug("OPENVR device property changed {}", it->slot);
+              *it = fresh;
+            }
           }
           break;
 
           // Device removed
           case ovr::EVREventType::VREvent_TrackedDeviceDeactivated:
-            logger::debug("OPENVR remove deactivated device");
-            // The pose query should update the device to connected = false
-
+          {
+            logger::debug("OPENVR deactivated device {}", event.trackedDeviceIndex);
             /*
-            auto deviceit = find_if(devices_.begin(), devices_.end(), [event](auto& d) { return d->slot == event.trackedDeviceIndex; });
-            if(deviceit != devices_.end()) {
-              (*deviceit)->connected = false;
-            }
+            // The pose query should update the device to connected = false
+            std::erase_if(devices_, [&event](const TrackedDevice &dev){ return event.trackedDeviceIndex == dev.slot; });
+            auto max = std::max_element(devices_.begin(), devices_.end(),
+                [](const auto &lhs, const auto &rhs) { return lhs.slot < rhs.slot; });
+            maxslot = max->slot;
             */
+          }
+          break;
+
+          case ovr::EVREventType::VREvent_ActionBindingReloaded:
+            if(++binding_reloaded%1000 == 0)
+              logger::debug("OPENVR reloaded {}", binding_reloaded);
             break;
 
           default:
+            logger::debug("OPENVR event skipped ({}): {}", event.trackedDeviceIndex, ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)));
             break;
           }
 
@@ -120,7 +146,7 @@ namespace {
         }
 
         // Get the current set of device poses
-        ovr::VRSystem()->GetDeviceToAbsoluteTrackingPose(ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, 0, poses, maxslot);
+        ovr::VRSystem()->GetDeviceToAbsoluteTrackingPose(ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, 0, poses, maxslot+1);
         // Add/update device pose and connected state
         for(auto& pd: devices_) {
           auto& pose = poses[pd.slot];
@@ -148,7 +174,7 @@ namespace {
     // Init VR on the browser main thread, all events should be raised on this thread
     // also serializes creation of overlies until both the browser and VR stacks are ready
     browser.SubOnContextInitialized.attach([]() {
-      gfxdev_ = gfx::create_device();
+      gfxdev_ = std::move(gfx::create_device());
       initVR();
     });
   }
@@ -283,6 +309,12 @@ Overlay::Overlay(const std::string &name, mathfu::vec2 size) :
       ovrl->SetOverlayWidthInMeters(vroverlay_, size.x);
       ovrl->ShowOverlay(vroverlay_);
     }
+
+    ovr::VRTextureBounds_t bounds;
+    bounds.uMax = 1;
+    bounds.vMin = 1; //inverted because openGL textures have min at bottom left, but openvr thinks min is top left (like directx)
+    ovrl->SetOverlayTextureBounds(vroverlay_, &bounds);
+
   } else {
     logger::error("OPENVR overlay interface unavailable");
   }
@@ -319,10 +351,7 @@ void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty
 
   // Bind and copy data from the chromium paint buffer to the texture
   gfx::ScopedBinder<gfx::tex2> binder(gfxdev_, texture_);
-  texture_->copy_from(
-    buffer,
-    texture_->width() * 4,
-    texture_->height());
+  texture_->copy_from(buffer);
 
   // Notify openvr of the texture
   // TODO: Handle errors
@@ -331,9 +360,10 @@ void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty
 
 void Overlay::updateTargetSize(mathfu::vec2i size) {
   // Create a new chromium-compatible(BGRA32) D3D/GL texture of the correct dims
-  texture_ = gfxdev_->create_texture(size.x, size.y);
+  auto newtex = gfxdev_->create_texture(size.x, size.y);
   // Point the openvr texture descriptor at the d3d/GL texture
-  vrtexture_.handle = texture_->ovr_handle();
+  vrtexture_.handle = newtex->ovr_handle();
+  texture_ = newtex;
 }
 
 Event<> OnReady;
@@ -342,6 +372,23 @@ Event<std::shared_ptr<const std::vector<TrackedDevice>>> OnDevicesUpdated;
 
 const std::vector<TrackedDevice> &getDevices() {
   return devices_;
+}
+
+const ::vr::HmdQuad_t getPlaybounds() {
+  ::vr::EVRInitError eError = ::vr::VRInitError_None;
+  ::vr::IVRChaperone* pChaperone = static_cast<::vr::IVRChaperone*>(::vr::VR_GetGenericInterface(::vr::IVRChaperone_Version, &eError));
+  if (!pChaperone) {
+    logger::info("Failed to obtain Chaperone interface: {}", ::vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+    return {};
+  }
+
+  ::vr::HmdQuad_t playAreaRect;
+  bool hasPlayArea = pChaperone->GetPlayAreaRect(&playAreaRect);
+
+  if(hasPlayArea)
+    return playAreaRect;
+  else
+    return {};
 }
 
 void registerHooks() {

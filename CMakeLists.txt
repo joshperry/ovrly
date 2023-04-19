@@ -191,20 +191,8 @@ if(MSVC)
 	add_definitions(-DUNICODE -D_UNICODE)
 endif()
 
-set(
-    CMAKE_RUNTIME_OUTPUT_DIRECTORY
-    ${CMAKE_HOME_DIRECTORY}/bin
-    )
-
-set(
-    CMAKE_LIBRARY_OUTPUT_DIRECTORY
-    ${CMAKE_HOME_DIRECTORY}/lib
-    )
-
-set(
-    TARGET_OUTPUT_DIRECTORY
-    ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIGURATION>
-    )
+# Determine the target output directory.
+SET_CEF_TARGET_OUT_DIR()
 
 #
 # Define CEF-based targets.
@@ -215,7 +203,16 @@ set(
 # directory.
 add_subdirectory(${CEF_LIBCEF_DLL_WRAPPER_PATH} libcef_dll_wrapper)
 
+# Logical target used to link the libcef library.
+ADD_LOGICAL_TARGET("libcef_lib" "${CEF_LIB_DEBUG}" "${CEF_LIB_RELEASE}")
+include_directories(${_CEF_ROOT})
+
+# Add the cef-dependant app
 add_subdirectory(src)
 
 # Display configuration settings.
 PRINT_CEF_CONFIG()
+
+# Install all files from CEF's output dir to CMAKE's
+install(DIRECTORY ${CEF_TARGET_OUT_DIR}/ TYPE BIN USE_SOURCE_PERMISSIONS)
+install(CODE "MESSAGE(\"shits been installed.\")")

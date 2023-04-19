@@ -147,6 +147,8 @@ namespace ovrly { namespace vr {
   /** Gets a list of devices states currently known by the VR system */
   const std::vector<TrackedDevice> &getDevices();
 
+  const ::vr::HmdQuad_t getPlaybounds();
+
   /**
    * Registers to launch the vr event thread once the browser process is initialized
    */

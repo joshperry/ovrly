@@ -25,8 +25,7 @@
 #include <functional>
 #include <sstream>
 #include <iterator>
-
-#include "ranges.hpp"
+#include <ranges>
 
 namespace ovrly { namespace serralize { // yes, I can spell even though I'm an sc2 fan
 
@@ -141,7 +140,7 @@ namespace ovrly { namespace serralize { // yes, I can spell even though I'm an s
     v->reserve(sz);
 
     // Construct each vector element in place and deserialize to the element address
-    for(auto x: Range::range(static_cast<int>(sz))) {
+    for(auto x: std::views::iota(0, static_cast<int>(sz))) {
       v->emplace_back();
       deserialize(i, &(*v)[x]);
     }
