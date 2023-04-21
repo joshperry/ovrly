@@ -1,5 +1,7 @@
 # ovrly
 
+NB: this `linix` branch from master will probably persist for a bit (today: 4/21/23) until I get time to do windows integration testing.
+
     ovrly manages vr overlays and runs browser overlies
 
 The purpose of this project is to compose [chromium embedded](https://bitbucket.org/chromiumembedded/cef/src/master/)
