@@ -45,7 +45,6 @@ set(SHARED_SRCS
   ovrly.cc
   ovrly.h
 	platform.h
-  ranges.hpp
 	resource.h
   serralize.hpp
 	uiovrly.cc
