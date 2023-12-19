@@ -1,7 +1,7 @@
 {
   description = "A flake for building ovrly";
 
-  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-22.11";
+  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
 
   inputs.cef.url = "https://cef-builds.spotifycdn.com/cef_binary_111.2.7+gebf5d6a+chromium-111.0.5563.148_linux64.tar.bz2";
   inputs.cef.flake = false;

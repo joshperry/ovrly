@@ -3,6 +3,7 @@
     "cef": {
       "flake": false,
       "locked": {
+        "lastModified": 1680244259,
         "narHash": "sha256-upmtdrpaxzRTJQCAVk8T+E26rbmMMMoW8Ixm5JiL43w=",
         "type": "tarball",
         "url": "https://cef-builds.spotifycdn.com/cef_binary_111.2.7%2Bgebf5d6a%2Bchromium-111.0.5563.148_linux64.tar.bz2"
@@ -13,12 +14,15 @@
       }
     },
     "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
       "locked": {
-        "lastModified": 1680946745,
-        "narHash": "sha256-KqGlwg9UTDsFBZZB8wzXgMnc8XQm95LtSbFvBsnqkPI=",
+        "lastModified": 1701680307,
+        "narHash": "sha256-kAuep2h5ajznlPMD9rnQyffWG8EM/C73lejGofXvdM8=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "946da791763db1c306b86a8bd3828bf5814a1247",
+        "rev": "4022d587cbbfd70fe950c1e2083a02621806a725",
         "type": "github"
       },
       "original": {
@@ -68,11 +72,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1676383589,
-        "narHash": "sha256-KCkWZXCjH+C4Kn7fUGSrEl5btk+sERHhZueSsvVbPWc=",
+        "lastModified": 1685908677,
+        "narHash": "sha256-E4zUPEUFyVWjVm45zICaHRpfGepfkE9Z2OECV9HXfA4=",
         "owner": "guibou",
         "repo": "nixGL",
-        "rev": "c917918ab9ebeee27b0dd657263d3f57ba6bb8ad",
+        "rev": "489d6b095ab9d289fe11af0219a9ff00fe87c7c5",
         "type": "github"
       },
       "original": {
@@ -83,16 +87,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1680865339,
-        "narHash": "sha256-H6rmJ1CyJ3Q5ZyoLMYq/UEYMS9Q1orJjRpWiQ47HudE=",
+        "lastModified": 1702780907,
+        "narHash": "sha256-blbrBBXjjZt6OKTcYX1jpe9SRof2P9ZYWPzq22tzXAA=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "0040164e473509b4aee6aedb3b923e400d6df10b",
+        "rev": "1e2e384c5b7c50dbf8e9c441a9e58d85f408b01f",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "nixos-22.11",
+        "ref": "nixos-23.11",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -100,11 +104,11 @@
     "openvr": {
       "flake": false,
       "locked": {
-        "lastModified": 1680048338,
-        "narHash": "sha256-NCi/4x90quI2v+exUpSTQbyoJsOKf4k6cfQcK7GqLVg=",
+        "lastModified": 1699392865,
+        "narHash": "sha256-UvhMhDqCJS5AhoZYf3mW558JebtBzNKpp6dbBntPUo0=",
         "owner": "ValveSoftware",
         "repo": "openvr",
-        "rev": "03897eb12fa9de5cd90bf2beee36866a202afed0",
+        "rev": "15f0838a0487feb7da60acd39aab8099b994234c",
         "type": "github"
       },
       "original": {
@@ -121,6 +125,21 @@
         "nixgl": "nixgl",
         "nixpkgs": "nixpkgs",
         "openvr": "openvr"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
       }
     }
   },

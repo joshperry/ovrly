@@ -338,7 +338,10 @@ void Overlay::setTransform(const mathfu::mat4 &matrix) {
 void Overlay::setParent(const Overlay& parent, const mathfu::mat4 &matrix) {
   transform_ = from_mathfu(matrix);
   parent_ = parent.vroverlay_;
-  ovr::VROverlay()->SetOverlayTransformOverlayRelative(vroverlay_, parent_, &transform_);
+  assert(false);
+  // FIXME: Removed from OpenVR, not sure if we reimplement
+  // https://github.com/ValveSoftware/openvr/commit/751538d6cbde9d060e5906c1d45c8cedeaf0ee18
+  // ovr::VROverlay()->SetOverlayTransformOverlayRelative(vroverlay_, parent_, &transform_);
 }
 
 void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty) {
