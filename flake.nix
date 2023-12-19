@@ -3,7 +3,7 @@
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
 
-  inputs.cef.url = "https://cef-builds.spotifycdn.com/cef_binary_111.2.7+gebf5d6a+chromium-111.0.5563.148_linux64.tar.bz2";
+  inputs.cef.url = "https://cef-builds.spotifycdn.com/cef_binary_120.1.9%2Bg3914241%2Bchromium-120.0.6099.109_linux64.tar.bz2";
   inputs.cef.flake = false;
 
   inputs.mathfu.url = "git+https://github.com/google/mathfu.git?submodules=1";

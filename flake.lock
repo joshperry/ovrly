@@ -3,14 +3,14 @@
     "cef": {
       "flake": false,
       "locked": {
-        "lastModified": 1680244259,
-        "narHash": "sha256-upmtdrpaxzRTJQCAVk8T+E26rbmMMMoW8Ixm5JiL43w=",
+        "lastModified": 1702971688,
+        "narHash": "sha256-v1hHZxBHV7MlvqbDXgfkDxBvzJ6olKuHZ40AY/IQWSA=",
         "type": "tarball",
-        "url": "https://cef-builds.spotifycdn.com/cef_binary_111.2.7%2Bgebf5d6a%2Bchromium-111.0.5563.148_linux64.tar.bz2"
+        "url": "https://cef-builds.spotifycdn.com/cef_binary_120.1.9%2Bg3914241%2Bchromium-120.0.6099.109_linux64.tar.bz2"
       },
       "original": {
         "type": "tarball",
-        "url": "https://cef-builds.spotifycdn.com/cef_binary_111.2.7%2Bgebf5d6a%2Bchromium-111.0.5563.148_linux64.tar.bz2"
+        "url": "https://cef-builds.spotifycdn.com/cef_binary_120.1.9%2Bg3914241%2Bchromium-120.0.6099.109_linux64.tar.bz2"
       }
     },
     "flake-utils": {
