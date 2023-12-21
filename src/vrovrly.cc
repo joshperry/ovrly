@@ -385,8 +385,14 @@ void Overlay::renderImageFile(const std::string &path) {
 }
 
 /**
- * When the impl class gets a new logical layout size, it should decide the
- * pixel size it wants to render and call this to update the target size.
+ * When the impl class gets a new logical layout size, or wants to change its
+ * render target, it should provide the the desired pixel here to effect the
+ * target size change.
+ *
+ * Bounds is a tuple holding a minUV and maxUV vector for specifying what
+ * portion of the target should be rendered. This is also used in cases like
+ * opengl where the bottom right of the texture is considered the start of the
+ * image.
  */
 void Overlay::updateTargetSize(mathfu::vec2i size, const std::tuple<mathfu::vec2, mathfu::vec2> &bounds) {
   // Create a new chromium-compatible(BGRA32) D3D/GL texture of the correct dims
