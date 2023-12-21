@@ -150,7 +150,8 @@ namespace {
         mathfu::vec2i psize(800 * size.y, 800);
 
         // Tell the overlay what pixel dimensions the browser will render to
-        updateTargetSize(psize);
+        // opengl is zero bottom right
+        updateTargetSize(psize, {{0, 1}, {1, 0}});
 
         // Tell the browser the new pixel size
         client_->GetHandler()->SetSize(psize);

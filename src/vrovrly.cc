@@ -98,7 +98,7 @@ namespace {
             auto it = std::find_if(devices_.begin(), devices_.end(),
                 [&event](const TrackedDevice &dev){ return event.trackedDeviceIndex == dev.slot; });
             if(it == devices_.end()) {
-              logger::debug("OPENVR added activated device {}", event.trackedDeviceIndex);
+              logger::debug("(vr) added activated device {}", event.trackedDeviceIndex);
               devices_.push_back(TrackedDevice(event.trackedDeviceIndex));
               maxslot = std::max(maxslot, event.trackedDeviceIndex);
             }
@@ -112,7 +112,7 @@ namespace {
 
             if(it != devices_.end()) {
               auto fresh = TrackedDevice(it->slot);
-              logger::debug("OPENVR device property changed {}", it->slot);
+              logger::debug("(vr) device property changed {}", it->slot);
               *it = fresh;
             }
           }
@@ -121,7 +121,7 @@ namespace {
           // Device removed
           case ovr::EVREventType::VREvent_TrackedDeviceDeactivated:
           {
-            logger::debug("OPENVR deactivated device {}", event.trackedDeviceIndex);
+            logger::debug("(vr) deactivated device {}", event.trackedDeviceIndex);
             /*
             // The pose query should update the device to connected = false
             std::erase_if(devices_, [&event](const TrackedDevice &dev){ return event.trackedDeviceIndex == dev.slot; });
@@ -134,11 +134,11 @@ namespace {
 
           case ovr::EVREventType::VREvent_ActionBindingReloaded:
             if(++binding_reloaded%1000 == 0)
-              logger::debug("OPENVR reloaded {}", binding_reloaded);
+              logger::debug("(vr) reloaded {}", binding_reloaded);
             break;
 
           default:
-            logger::debug("OPENVR event skipped ({}): {}", event.trackedDeviceIndex, ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)));
+            logger::debug("(vr) event skipped ({}): {}", event.trackedDeviceIndex, ovr::VRSystem()->GetEventTypeNameFromEnum(static_cast<ovr::EVREventType>(event.eventType)));
             break;
           }
 
@@ -179,20 +179,26 @@ namespace {
     });
   }
 
+  // HMD Matrix is right-handed system [row][column]
+  // +y is up
+  // +x is to the right
+  // -z is forward
+  // Distance unit is  meters
+  // Mathfu matrix constructor/accessor is column-major
   mathfu::mat4 to_mathfu(const ::vr::HmdMatrix34_t &mat) {
     return {
-      mat.m[0][0], mat.m[0][1], mat.m[0][2], mat.m[0][3],
-      mat.m[1][0], mat.m[1][1], mat.m[1][2], mat.m[1][3],
-      mat.m[2][0], mat.m[2][1], mat.m[2][2], mat.m[2][3],
-      0, 0, 0, 1
+      mat.m[0][0], mat.m[1][0], mat.m[2][0], 0,
+      mat.m[0][1], mat.m[1][1], mat.m[2][1], 0,
+      mat.m[0][2], mat.m[1][2], mat.m[2][2], 0,
+      mat.m[0][3], mat.m[1][3], mat.m[2][3], 0
     };
   }
 
   ::vr::HmdMatrix34_t from_mathfu(const mathfu::mat4 &mat) {
     return { {
-      {mat.data_[0][0], mat.data_[0][1], mat.data_[0][2], mat.data_[0][3]},
-      {mat.data_[1][0], mat.data_[1][1], mat.data_[1][2], mat.data_[1][3]},
-      {mat.data_[2][0], mat.data_[2][1], mat.data_[2][2], mat.data_[2][3]}
+      {mat[0], mat[4], mat[8], mat[12]},
+      {mat[1], mat[5], mat[9], mat[13]},
+      {mat[2], mat[6], mat[10], mat[14]}
     } };
   }
 
@@ -291,6 +297,7 @@ Overlay::Overlay(const std::string &name, mathfu::vec2 size) :
   size_(size),
   vroverlay_(ovr::k_ulOverlayHandleInvalid)
 {
+  // Get the OpenVR Overlay interface
   auto ovrl = ovr::VROverlay();
   if(ovrl) {
     // First see if the overlay exists already
@@ -298,6 +305,7 @@ Overlay::Overlay(const std::string &name, mathfu::vec2 size) :
     auto err = ovrl->FindOverlay(name.c_str(), &vroverlay_);
     if(err != ovr::VROverlayError_None) {
       // Didn't find an existing overlay, create a new one
+      logger::debug("(vr) creating overlay");
       err = ovrl->CreateOverlay(name.c_str(), name.c_str(), &vroverlay_);
       if (err != ovr::VROverlayError_None) {
         logger::error("OPENVR error creating overlay {}", err);
@@ -306,15 +314,13 @@ Overlay::Overlay(const std::string &name, mathfu::vec2 size) :
 
     // Set overlay properties and show it
     if(vroverlay_ != ovr::k_ulOverlayHandleInvalid) {
+      logger::debug("(vr) overlay created, setting width to {}m and showing", size.x);
       ovrl->SetOverlayWidthInMeters(vroverlay_, size.x);
+
       ovrl->ShowOverlay(vroverlay_);
+    } else {
+      logger::error("OPENVR overlay creation failed, invalid handle returned");
     }
-
-    ovr::VRTextureBounds_t bounds;
-    bounds.uMax = 1;
-    bounds.vMin = 1; //inverted because openGL textures have min at bottom left, but openvr thinks min is top left (like directx)
-    ovrl->SetOverlayTextureBounds(vroverlay_, &bounds);
-
   } else {
     logger::error("OPENVR overlay interface unavailable");
   }
@@ -335,6 +341,13 @@ void Overlay::setTransform(const mathfu::mat4 &matrix) {
   ovr::VROverlay()->SetOverlayTransformAbsolute(vroverlay_, ovr::ETrackingUniverseOrigin::TrackingUniverseStanding, &transform_);
 }
 
+const mathfu::mat4 Overlay::getTransform() {
+  ovr::HmdMatrix34_t xform;
+  ovr::ETrackingUniverseOrigin origin;
+  ovr::VROverlay()->GetOverlayTransformAbsolute(vroverlay_, &origin, &xform);
+  return to_mathfu(xform);
+}
+
 void Overlay::setParent(const Overlay& parent, const mathfu::mat4 &matrix) {
   transform_ = from_mathfu(matrix);
   parent_ = parent.vroverlay_;
@@ -346,7 +359,7 @@ void Overlay::setParent(const Overlay& parent, const mathfu::mat4 &matrix) {
 
 void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty) {
   if(vroverlay_ == ovr::k_ulOverlayHandleInvalid) {
-    logger::debug("OPENVR Overlay::render with no overlay");
+    logger::error("OPENVR Overlay::render with no overlay");
     return;
   }
 
@@ -358,15 +371,36 @@ void Overlay::render(const void* buffer, const std::vector<mathfu::recti> &dirty
 
   // Notify openvr of the texture
   // TODO: Handle errors
-  ovr::VROverlay()->SetOverlayTexture(vroverlay_, &vrtexture_);
+  auto err = ovr::VROverlay()->SetOverlayTexture(vroverlay_, &vrtexture_);
+  if(err != ovr::VROverlayError_None) {
+    logger::debug("!!!!(vr) Error setting overlay texture {}", err);
+  }
 }
 
-void Overlay::updateTargetSize(mathfu::vec2i size) {
+void Overlay::renderImageFile(const std::string &path) {
+  auto err = ovr::VROverlay()->SetOverlayFromFile(vroverlay_, path.c_str());
+  if(err != ovr::VROverlayError_None) {
+    logger::debug("!!!!(vr) Error setting overlay contents to file {}", err);
+  }
+}
+
+/**
+ * When the impl class gets a new logical layout size, it should decide the
+ * pixel size it wants to render and call this to update the target size.
+ */
+void Overlay::updateTargetSize(mathfu::vec2i size, const std::tuple<mathfu::vec2, mathfu::vec2> &bounds) {
   // Create a new chromium-compatible(BGRA32) D3D/GL texture of the correct dims
   auto newtex = gfxdev_->create_texture(size.x, size.y);
   // Point the openvr texture descriptor at the d3d/GL texture
   vrtexture_.handle = newtex->ovr_handle();
   texture_ = newtex;
+
+  ovr::VRTextureBounds_t vrbounds;
+  vrbounds.uMin = std::get<0>(bounds).x;
+  vrbounds.uMax = std::get<0>(bounds).y;
+  vrbounds.vMin = std::get<1>(bounds).x;
+  vrbounds.vMax = std::get<1>(bounds).y;
+  ovr::VROverlay()->SetOverlayTextureBounds(vroverlay_, &vrbounds);
 }
 
 Event<> OnReady;

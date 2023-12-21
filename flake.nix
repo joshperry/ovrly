@@ -20,14 +20,20 @@
   outputs = { self, nixpkgs, cef, mathfu, openvr, flake-utils, nixgl }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
     let
-      pkgs = import nixpkgs { inherit system; overlays=[ nixgl.overlay ]; };
+      flakeoverlays = final: prev: {
+        spdlog = prev.spdlog.overrideAttrs (old: {
+          # OpenVR libs use an older libfmt, this fixes that conflict
+          propagatedBuildInputs = [ final.fmt_9 ];
+        });
+      };
+      pkgs = import nixpkgs { inherit system; overlays=[ nixgl.overlay flakeoverlays ]; };
       deps = with pkgs; [
   # cef/chromium deps
         alsa-lib atk cairo cups dbus expat glib libdrm libva libxkbcommon mesa nspr nss pango
         xorg.libX11 xorg.libxcb xorg.libXcomposite xorg.libXcursor xorg.libXdamage
         xorg.libXext xorg.libXfixes xorg.libXi xorg.libXinerama xorg.libXrandr
   # ovrly deps
-        cppzmq fmt_8 glfw nlohmann_json spdlog zeromq
+        cppzmq fmt_9 glfw nlohmann_json spdlog zeromq
       ];
 
       ovrlyBuild = pkgs.stdenv.mkDerivation {
@@ -37,14 +43,9 @@
           nativeBuildInputs = with pkgs; [
             cmake
             ninja
-            autoPatchelfHook
           ];
 
           buildInputs = deps;
-
-          FONTCONFIG_FILE = pkgs.makeFontsConf {
-            fontDirectories = [ pkgs.freefont_ttf ];
-          };
 
           cmakeFlags = [
             "-DCEF_ROOT=${cef}"
@@ -77,8 +78,13 @@
       defaultPackage = ovrlyBuild;
 
       devShell = pkgs.mkShell {
-        nativeBuildInputs = [ pkgs.cmake ];
+        nativeBuildInputs = [
+          pkgs.cmake
+        ];
         buildInputs = deps;
+
+        # Don't want hardening in our dev debug builds
+        hardeningDisable = ["all"];
 
         # Exports as env-vars so we can find these paths in-shell
         CEF_ROOT=cef;

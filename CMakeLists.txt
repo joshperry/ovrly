@@ -110,7 +110,7 @@
 # Global setup.
 #
 
-cmake_minimum_required(VERSION 3.10.0.0)
+cmake_minimum_required(VERSION 3.21)
 
 # Only generate Debug and Release configuration types.
 set(CMAKE_CONFIGURATION_TYPES Debug Release)
@@ -176,8 +176,7 @@ set_property(GLOBAL PROPERTY OS_FOLDERS ON)
 #    > set CEF_ROOT=c:\path\to\cef_binary_3.2704.xxxx.gyyyyyyy_windows32
 # F. Comment in these lines:
 #
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CEF_ROOT}/cmake")
 
 #
 # Load the CEF configuration.
@@ -186,12 +185,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # Execute FindCEF.cmake which must exist in CMAKE_MODULE_PATH.
 find_package(CEF REQUIRED)
 
-# we only bother with UNICODE builds on Windows
-if(MSVC)
-	add_definitions(-DUNICODE -D_UNICODE)
-endif()
-
-# Determine the target output directory.
 SET_CEF_TARGET_OUT_DIR()
 
 #
@@ -215,4 +208,4 @@ PRINT_CEF_CONFIG()
 
 # Install all files from CEF's output dir to CMAKE's
 install(DIRECTORY ${CEF_TARGET_OUT_DIR}/ TYPE BIN USE_SOURCE_PERMISSIONS)
-install(CODE "MESSAGE(\"shits been installed.\")")
+#install(CODE "MESSAGE(\"shits been installed.\")")

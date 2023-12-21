@@ -35,6 +35,8 @@ set(SHARED_SRCS
 	appovrly.h
   events.h
   gfx.cc
+  imgovrly.cc
+  imgovrly.h
   jsovrly.cc
   jsovrly.h
   logging.cc
@@ -72,6 +74,10 @@ if(OS_WINDOWS)
   add_executable (ovrly WIN32 ${SHARED_SRCS} ${PLAT_SRCS})
 endif()
 if(OS_LINUX)
+  list(APPEND CEF_CXX_COMPILER_FLAGS
+    -fexceptions                 # Enable exceptions
+    -std=c++20
+    )
   set(PLAT_SRCS
     gfx_ogl.cc
     uiovrly_linux.cc

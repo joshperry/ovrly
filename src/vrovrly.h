@@ -54,6 +54,11 @@ namespace ovrly { namespace vr {
       void setTransform(const mathfu::mat4 &matrix);
 
       /**
+       * Gets the overlay's positioning transform matrix
+       */
+      const mathfu::mat4 getTransform();
+
+      /**
        * Parents the positioning of this overlay to another overlay with a transform, visibility is also mirrored
        */
       void setParent(const Overlay &parent, const mathfu::mat4 &matrix);
@@ -67,6 +72,13 @@ namespace ovrly { namespace vr {
        * specified in `gfx::BufferFormat`.
        */
       void render(const void *buffer, const std::vector<mathfu::recti> &dirty);
+
+      /**
+       * Renders an image file to the overlay texture
+       *
+       * TODO: Support setting bounds for rendering subsections of the image
+       */
+      void renderImageFile(const std::string &path);
 
       // TODO: Interface for shared texture rendering
 
@@ -86,12 +98,12 @@ namespace ovrly { namespace vr {
       virtual void onLayout(mathfu::vec2) = 0;
 
       /**
-       * For subclasses to notify of a change in render target size
+       * For subclasses to notify of a change in render target size and the bounds as as u,v.
        *
        * This must be called before `render()` is called with a buffer of the
        * new target size.
        */
-      void updateTargetSize(mathfu::vec2i size);
+      void updateTargetSize(mathfu::vec2i size, const std::tuple<mathfu::vec2, mathfu::vec2> &bounds);
 
     private:
       mathfu::vec2 size_;

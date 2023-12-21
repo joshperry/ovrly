@@ -82,7 +82,7 @@ namespace {
           return;
         default:
           // Not right or left, don't export
-          logger::debug("Skipped controller {}", device.role.value());
+          logger::debug("(js) Skipped controller {}", device.role.value());
           return;
       }
       break;
@@ -122,13 +122,13 @@ namespace {
 
   // When the render process is being created
   void onRenderProcess(process::Render& rp) {
-    logger::debug("Render process spawned!");
+    logger::debug("(js) Render process spawned!");
     // Setup the zmq IPC connection and inject the js API interface.
     rp.SubOnContextCreated.attach([](CefRefPtr<CefBrowser> browser, auto frame, CefRefPtr<CefV8Context> jsctx) {
       // TODO: Setup the js API
       // The js setup is currently identical for both the UI client and the overlie clients,
       // but future versions may want to differentiate the js interface between the two.
-      logger::debug("Render process spawned JS context!");
+      logger::debug("(js) Render process spawned JS context!");
 
       auto ovrly = CefV8Value::CreateObject(nullptr, nullptr);
       ovrly->SetValue(L"initialized", CefV8Value::CreateBool(true), readonly);
@@ -139,7 +139,7 @@ namespace {
 
       // Start a thread to receive zmq IPC messages
       zloop_ = std::make_unique<std::thread>([jsctx]() {
-        logger::debug("Spawned ZMQ message loop thread");
+        logger::debug("(js) Spawned ZMQ message loop thread");
 
         try {
           // Setup and connect the zmq sub socket

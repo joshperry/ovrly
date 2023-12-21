@@ -13,6 +13,13 @@ This will leave you in `./build`.
 Run `buildPhase` after any code change to rebuild, and find the compiled binary in `./build/Release` (or `Debug` as the case may be).
 This maintains the object cache between builds so they are relatively rapid in most cases.
 
+Currently running this command after code changes: `buildPhase && installPhase && LD_LIBRARY_PATH=../outputs/out/bin/ steam-run ../outputs/out/bin/ovrly`
+
+I did get it wrapped to run without `steam-run`, but I'm trying to keep it
+running without patching rpath so that it could prospectively run outside of
+nix. Though I do need to figure out a better way to get it to look for libs
+dropped next to the executable without `LD_LIBRARY_PATH`.
+
 # Windows
 
 ## Containerized Build
@@ -28,3 +35,16 @@ The prebuilt container is available on dockerhub in the `joshperry/ovrly` repo. 
 ## Building ZMQ Lib
 
     cmake -G"Visual Studio 16 2019" -A x64 -DWITH_PERF_TOOL=OFF -DCMAKE_CXX_STANDARD=17 -DBUILD_SHARED=ON -DBUILD_STATIC=OFF -DZMQ_BUILD_TESTS=OFF ..
+
+# Graphics
+
+The rendering system is least-common-denominator style, maybe in a slightly bad way.
+
+I started with an overkill library(https://github.com/daktronics/cef-mixer/)
+that at the time I didn't have the knowledge yet to know is solving a
+completely different problem than ovrly needs. So it kind of a DirectX-centric
+interface with advanced features (multi-context), so integrating it with OpenGL
+had a little impedance mismatch.
+
+All this to say, this is somewhere I'd like to clean up the interface to be a
+bit more tailored.

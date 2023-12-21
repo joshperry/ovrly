@@ -148,6 +148,107 @@ The API exposed by each module, which facilitate interaction between the multipl
 have both a functional interface and an event-driven interface. Event subscription is accomplished
 with Observables to which many target listeners can subscribe.
 
+### App
+
+Implements the CefApp interface and is in charge of dispatching logic between code
+intented to run in the browser or render process on startup.
+
+It exposes two observables, `OnBrowser` and `OnRender` which are dispatched in
+their respective process types.
+
+It also exposes a task dispatch function `runOnMain` which will run a provided
+code on the process' main thread.
+
+### GFX
+
+This is defines and implements access to the the graphics system like OpenGL,
+Vulkan, or DirectX. It's primary purpose is to provide an abstract interface
+over these different techs to provide for xplat.
+
+This is accomplished through duck-typing; a platform-specific header is
+included with conditional ifdefs, and the build system will compile/link only
+the OS-specific source module.
+
+Ovrly has fairly simple needs as far as the graphics subsystem is concerned. It
+only needs to create and blit into a texture which is given to the OpenVR
+overlay for rendering.
+
+It's possible that OpenGL or Vulkan may eventually be the only needed backend.
+
+### JS
+
+This contains the logic that mediates between OpenVR and browser JS instances
+(one in each render process). This acts similarly to other cef interfaces which
+use IPC to single-source certain logic (like the gpu-process) so that we only
+have a single connection to the OpenVR API.
+
+On the browser process it uses the OpenVR API to enumerate the interface
+(hardware, playarea, etc.) and receive events for changes to the environment
+(input events, positional events, hardware state changes, etc), it also handles
+requests for changes to the OpenVR state.
+
+For delivering events it creates a listening ZMQ PUB socket, for taking
+state-change requests it creates a listening ZMQ REP socket.
+
+On the render process it connects to the browser process' ZMQ PUB socket to
+recieve VR state-change events. It marshals this event data into the JS object
+model using its V8 engine interface.
+
+When JS functions are called that should mutate the VR state, it marshals this
+data and makes a call to the browser process using the ZMQ REP socket and
+marshals any response data back to the V8 callsite.
+
+### Logging
+
+A simple logging module based on spdlog. It's job is to initialize and make the
+logger available to other modules.
+
+### Main
+
+This is the primary startup code for ovrly, it composes all the modules and
+then calls cef functions to initialize the app. The rest of the application
+logic branches from cef-triggered observables like `OnBrowser`.
+
+### Manager
+
+This is where code for managing the native instances of browsers and overlay
+instances.
+
+It currently does very little, but may eventually be where the
+window-manageresque logic will reside.
+
+### UI
+
+This is mainly a CefClient implementation that handles the desktop UI for
+ovrly. It's fairly xplat already as it uses chromium's views for creating and
+managing most of the browser UI/UX.
+
+### VR
+
+This module handles most logic for interacting and marshaling data and events
+between OpenVR, abstracting much of the interface to ovrly's needs so other
+modules don't need to know much of anything about OpenVR.
+
+In the future, this may be where support for other VR tech like OpenXR is
+implemented (OpenXR doesn't yet have the concept of overlays yet).
+
+One of the primary interfaces provided by this module is the `Overlay` abstract
+class which handles base logic that can be used to implement overlays which
+derive their visual surface from any source (e.g. a cef browser, a PNG, a
+webcam, etc), and provides virtual functions like `onLayout` for delivering
+events overlay shape changes.
+
+### Web
+
+Similar to UI, this is a CefClient implementation, though its implementation is
+specific to the offscreen browser instances behind each VR overlay. It also
+provides an implementation of the VR module's Overlay class.
+
+It's primary task is to recieve the buffer and dirty rects provided by the
+render process and hand them to the Overlay render logic, . It currently doesn't
+implement much UX, but this is also where things like virtual keyboard and
+mouse input handling would occur.
+
 ### CEF integration
 
 Because cef wraps chromium to act as the ovrly user interface, the logic necessarily
@@ -215,60 +316,83 @@ by sharing a texture between the cef and openvr rendering pipelines.
 
 As cef is a wrapper over chromium, it also shares chromiums multi-process design.
 
-In a cef app there is one primary browser process with multiple threads and is generally responsible for
-rendering to the UI, processing OS input events, doing disk and network IO, and handling general orchestration
-of browser frame operations. This is the application startup process.
+In a cef app there is one primary browser process with multiple threads and is
+generally responsible for rendering to the UI, processing OS input events,
+doing disk and network IO, and handling general orchestration of browser frame
+operations. This is the application startup process.
 
-Each browser frame renders and executes javascript inside of a child process called the render process.
+Each browser frame renders and executes javascript inside of a child process
+called the render process to sandbox untrusted code and data using the process
+boundary (many sandboxing techs at the OS-level target processes).
+
+There are also a number of utility processes, such as the gpu-process where
+access to the GPU is mediated since access to the GPU is a privileged operation
+(e.g. it's possible to scrape the user's screen). For simplicity, the rest of
+the text will just be written as if the render process was the only other
+child because our code doesn't touch the others.
 
 ### Process Dispatch
 
-When cef needs to fork a new child process, it executes its own executable again but with a special cli flag.
-When the cef init code sees this flag, it will internally coopt the startup thread and only return when
-the render process shuts down.
+When cef needs to fork a new child process, it executes its own executable
+again but with special cli flags. When the cef init code sees these flags, it
+will internally coopt the startup thread and only return when the render
+process shuts down.
 
-When the init function returns in this case, it returns `-1` so that the code knows this was a terminating
-child render process and can `exit()` instead of setting up the browser process singleton.
+When the init function returns in this case, it returns `-1` so that the code
+knows this was a terminating child render process and can `exit()` instead of
+setting up the browser process singleton.
 
-As little work as possible should be done in the process before cef init function is called to
-minimize render process load time.
+As little work as possible should be done in the process before cef init
+function is called to minimize child process load time.
 
 ### CefApp
 
-Used by cef to find handlers for the browser process and render processes.
-These handlers are primarily for lifetime events, threads, IPC, and V8 contexts of these processes.
+This is an embedder-implemented collection of event dispatch interfaces used by
+cef to find handlers for the browser process and render processes. These
+handlers are primarily for lifetime events, threads, IPC, and V8 contexts of
+these processes.
 
 ### CefBrowserProcessHandler
 
-This code runs in the browser process and is a singleton.
+Event dispatch interface that contains functions cef code calls from the
+browser process.
 
 *Important Handlers*
 
-*OnContextInitialized:* Called when the browser process is bootstrapped and cef is fully ready to do things.
-This is a good place to trigger initial browser display and loading other modules that require access to a ready-to-go cef.
+*OnContextInitialized:* Called when the browser process is bootstrapped and cef
+is fully ready to do things. This is a good place to trigger initial browser
+display and loading other modules that require access to a ready-to-go cef.
 
 ### CefRenderProcessHandler
 
-This code runs in the render process and is a singleton in its process.
+Event interface with functions that cef calls in the render process.
 
 *Important Handlers*
 
-- *OnContextCreated:* When the javascript context for the render process is created. This is where extensions to the JS environment should be hooked in.
-- *OnProcesMessageReceived:* When a render process gets a message from another process.
+*OnContextCreated:* When the javascript context for the render process is
+created. This is where extensions to the JS environment should be hooked in.
+
+*OnProcessMessageReceived:* When a render process gets a message from another
+process.
 
 ### CefClient
 
-Used by cef to find handlers for each browser frame.
+Another embedder-implemented event dispatch interface collection with functions
+used by cef that define operational logic for browser frames.
 
-This is effectively an interprocess proxy for code in the browser process to interact with code
-for the browser frame and v8 context running in the render processes.
+This interface is implemented by cef as an interprocess proxy instances in the
+browser process for orchestration logic to interact with the browser frame and
+v8 context running in the render processes.
 
-These handlers are for communicating things like display, dialog, download, render,
-request, focus, find, drag-n-drop, and loading events.
+These handlers are for communicating things like display, dialog, download,
+render, request, focus, find, drag-n-drop, and loading events. This forms the primary
+abstraction for UI and OS-specific logic; there is a separate impl for overlays
+and for the desktop window as the UX differs quite a bit between the two.
 
-This code runs in the browser process and when creating each new browser instance (render process)
-a unique instance of this and/or each handler class(es) can be created, or a single instance can be
-used if the logic between all are absolutely identical.
+When creating each new browser instance (render process), a unique instance of
+this and/or each each of the dispatch interface impls can be created, or a
+single instance can be used if the logic between all are absolutely identical
+(i.e. no local state in the dispatch logic).
 
 *Important Handlers*
 
@@ -276,11 +400,18 @@ used if the logic between all are absolutely identical.
 
 ### CefRenderHandler
 
-Handlers that run in the browser process to respond to events related to rendering happening in the render process for a particular browser instance.
+Another event dispatch interface with functions cef runs from the browser
+process to respond to events related to rendering happening in the render
+process for a particular browser frame.
 
-This is a primary integration point for hooking render data when using cef to render browser views in off-screen mode.
+This is a primary integration point for hooking render data when using cef to
+render browser views in off-screen mode.
 
 *Important Handlers*
 
-- *OnPaint:* Provides a pixel buffer of the rendered browser view to the browser process each time the render process finishes a render.
-- *OnAcceleratedPaint:* When using shared textures (currently broken) provides notification to the browser process after the render process updates the texture.
+*OnPaint:* Provides a pixel buffer of the rendered browser view to the browser
+process each time the render process finishes a render.
+
+*OnAcceleratedPaint:* When using shared textures (currently broken) provides
+notification to the browser process after the render process updates the
+texture.

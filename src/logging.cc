@@ -19,7 +19,7 @@ namespace ovrly{ namespace logging{
 
       logger::set_pattern("[%m%d/%H%M%S.%e:%l:%@] [%n] [t%t] %v");
 
-#ifdef _DEBUG
+#ifndef NDEBUG
       logger::set_level(logger::level::debug);
 #endif
     }
