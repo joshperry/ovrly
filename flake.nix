@@ -14,10 +14,7 @@
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
-  inputs.nixgl.url = "github:guibou/nixGL";
-  inputs.nixgl.inputs.nixpkgs.follows = "nixpkgs";
-
-  outputs = { self, nixpkgs, cef, mathfu, openvr, flake-utils, nixgl }:
+  outputs = { self, nixpkgs, cef, mathfu, openvr, flake-utils }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
     let
       flakeoverlays = final: prev: {
@@ -26,7 +23,7 @@
           propagatedBuildInputs = [ final.fmt_9 ];
         });
       };
-      pkgs = import nixpkgs { inherit system; overlays=[ nixgl.overlay flakeoverlays ]; };
+      pkgs = import nixpkgs { inherit system; overlays=[ flakeoverlays ]; };
       deps = with pkgs; [
   # cef/chromium deps
         alsa-lib atk cairo cups dbus expat glib libdrm libva libxkbcommon mesa nspr nss pango
