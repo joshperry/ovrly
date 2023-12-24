@@ -63,34 +63,43 @@ namespace {
     });
   }
 
+  /**
+   * Marshals the data for a VR device into V8 objects and upserts them as
+   * properties onto `jsdevs`.
+   */
   void loadDev(CefRefPtr<CefV8Value> const& jsdevs, vr::TrackedDevice &device) {
     const wchar_t *name = L"none";
 
+    // See if it's a device we're interested in marshalling
     switch(device.type) {
-    case ovr::TrackedDeviceClass_HMD:
-      name = L"hmd";
-      break;
-    case ovr::TrackedDeviceClass_Controller:
-      switch(device.role.value()) {
-        case ovr::TrackedControllerRole_LeftHand:
-          name = L"left";
-          break;
-        case ovr::TrackedControllerRole_RightHand:
-          name = L"right";
-          break;
-        case ovr::TrackedControllerRole_Invalid:
-          return;
-        default:
-          // Not right or left, don't export
-          logger::debug("(js) Skipped controller {}", device.role.value());
-          return;
-      }
-      break;
-    default:
-      // If it's not the HMD or controllers, let's not export
-      return;
+      case ovr::TrackedDeviceClass_HMD:
+        name = L"hmd";
+        break;
+
+      case ovr::TrackedDeviceClass_Controller:
+        switch(device.role.value()) {
+
+          case ovr::TrackedControllerRole_LeftHand:
+            name = L"left";
+            break;
+
+          case ovr::TrackedControllerRole_RightHand:
+            name = L"right";
+            break;
+
+          // Skip controllers that are invalid or have roles we don't care about
+          default:
+            return;
+        }
+        break;
+
+      // Skip device classes we don't care about
+      default:
+        return;
     }
 
+    // Create the device if it doesn't exist yet, and set any static properties
+    // saving it in the device list by name.
     if(!jsdevs->HasValue(name)) {
       auto dev = CefV8Value::CreateObject(nullptr, nullptr);
       dev->SetValue(L"manufacturer", CefV8Value::CreateString(device.manufacturer), readonly);
@@ -99,10 +108,15 @@ namespace {
       jsdevs->SetValue(name, dev, readonly);
     }
 
+    // Get the object from the list by name
     auto dev = jsdevs->GetValue(name);
+
+    // Update mutable device properties
     dev->SetValue(L"connected", CefV8Value::CreateBool(device.connected), readonly);
 
+    // Set/update the device's location in 3D space
     if(device.pose) {
+      // Create the device pose and initialize it
       if(!dev->HasValue(L"pose")) {
         // ovrly.devices.hmd.pose.matrix
         auto devmat = CefV8Value::CreateArray(12);
@@ -111,9 +125,9 @@ namespace {
         dev->SetValue(L"pose", devpose, readonly);
       }
 
+      // Update the device's position matrix
       auto devpose = dev->GetValue(L"pose");
       auto devmat = devpose->GetValue(L"matrix");
-
       for(int i = 0; i < 12; i++) {
         devmat->SetValue(i, CefV8Value::CreateDouble(device.pose.value().matrix[i]));
       }
@@ -123,29 +137,37 @@ namespace {
   // When the render process is being created
   void onRenderProcess(process::Render& rp) {
     logger::debug("(js) Render process spawned!");
-    // Setup the zmq IPC connection and inject the js API interface.
+
+    // When the JS context has been created
     rp.SubOnContextCreated.attach([](CefRefPtr<CefBrowser> browser, auto frame, CefRefPtr<CefV8Context> jsctx) {
-      // TODO: Setup the js API
-      // The js setup is currently identical for both the UI client and the overlie clients,
-      // but future versions may want to differentiate the js interface between the two.
+      // TODO: Setup the lowlevel JS API
+
+
+      // The JS setup is currently identical for both the desktop UI client and
+      // the overlie clients, but future versions may want to differentiate them.
       logger::debug("(js) Render process spawned JS context!");
 
+      // Signals to the javascript code that ovrly is live
       auto ovrly = CefV8Value::CreateObject(nullptr, nullptr);
       ovrly->SetValue(L"initialized", CefV8Value::CreateBool(true), readonly);
       jsctx->GetGlobal()->SetValue(L"ovrly", ovrly, readonly);
 
-      // Get the bound info from the VR subsystem
+
+      // TODO: Get currently live info from the VR subsystem without waiting
+      // for the next event, probably with the RPC socket
 
 
-      // Start a thread to receive zmq IPC messages
+      // Start a thread to handle processing zmq pubsub messages sent from the
+      // browser process with which to update state in JS
       zloop_ = std::make_unique<std::thread>([jsctx]() {
-        logger::debug("(js) Spawned ZMQ message loop thread");
+        logger::debug("(js) Spawned ZMQ pubsub client thread");
 
         try {
           // Setup and connect the zmq sub socket
           zsock_ = std::make_unique<zmq::socket_t>(zctx_, zmq::socket_type::sub);
           zsock_->connect(ZMQ_URL);
 
+          // Subscribe to particular pubsub topics
           zsock_->set(zmq::sockopt::subscribe, "vr.devices");
 
           while(1) {
@@ -159,30 +181,33 @@ namespace {
               // Get the envelope body
               result = zsock_->recv(*msg);
               if(result) {
-                // Update the js data on its thread
+                // Update js data on the main thread
                 process::runOnMain([jsctx, topic, msg]() {
                   // Deserialize the message data
                   serralize::InMemStream instream(msg->data(), msg->size());
                   std::vector<vr::TrackedDevice> devices;
                   deserialize(instream, &devices);
 
+                  // Lock the JS context for mutation
+                  // FIXME: wrap this in a scoped lock
                   jsctx->Enter();
 
+                  // Get the top-level `ovrly` property
                   auto ovrly = jsctx->GetGlobal()->GetValue(L"ovrly");
-                  if(!ovrly->HasValue(L"devices")) {
-                    // ovrly.devices.hmd
-                    auto jsdevs = CefV8Value::CreateObject(nullptr, nullptr);
 
-                    // ovrly.devices
+                  // Create the device property
+                  if(!ovrly->HasValue(L"devices")) {
+                    auto jsdevs = CefV8Value::CreateObject(nullptr, nullptr);
                     ovrly->SetValue(L"devices", jsdevs, readonly);
                   }
 
+                  // Marshal the native device data into JS
                   auto jsdevs = ovrly->GetValue(L"devices");
-
                   for(auto &dev: devices) {
                     loadDev(jsdevs, dev);
                   }
 
+                  // Unlock the JS context
                   jsctx->Exit();
                 });
               }
@@ -205,12 +230,14 @@ namespace {
   }
 
   // When a web client is created
+  // TODO: Why are we listening to this?
   void onWebClient(web::Client& c) {
 
   }
 
   /**
-   * Serializes some message object into a zmq message and sets up cleanup
+   * Serializes some message object into a zmq message body and configures
+   * garbage collection
    */
   template<typename T>
   zmq::message_t getZmqMessage(const T &data) {
@@ -227,7 +254,7 @@ namespace {
   }
 
   /**
-   * Send a serializable message object to each subscribed render process
+   * Sends a serializable message object to render processes
    */
   template<typename T>
   void publishMessage(const std::string &topic, const T &data) {
@@ -243,20 +270,21 @@ namespace {
     }
   }
 
-  // Send an updated device state list to the each render process
+  // Sends an updated device state list to the render processes
   void sendDevices(std::shared_ptr<const std::vector<vr::TrackedDevice>> devices) {
     publishMessage("vr.devices.updated", *devices.get());
   }
 
-  // When the VR module is ready to go, on main thread
+  // The VR module is ready to go
   void onVRReady() {
+    // Send the initial device state out to listeners
     auto devices = std::make_shared<std::vector<vr::TrackedDevice>>(vr::getDevices());
     sendDevices(devices);
 //    auto playbounds = vr::getPlaybounds();
 //    setPlaybounds(playbounds);
   }
 
-  // When we receive a device state update from the VR module, on main thread
+  // Device state updates from the VR module
   void onDevicesUpdated(std::shared_ptr<const std::vector<vr::TrackedDevice>> devices) {
     sendDevices(devices);
   }
@@ -272,7 +300,7 @@ void registerHooks() {
 
   // Hook notifications to get the browser-side client to render processes when they're created
   ui::OnClient.attach(onWebClient); // ovrly UI browser instance
-  web::OnClient.attach(onWebClient); // instances for ovrlies
+  web::OnClient.attach(onWebClient); // instances for web ovrlies
 
   // Hook VR notifications
   vr::OnReady.attach(onVRReady);

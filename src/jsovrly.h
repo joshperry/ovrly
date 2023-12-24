@@ -13,16 +13,12 @@
  * the logic to do cross-process pub-sub to dispatch events from native code
  * running in the browser process to js code running in any number of v8 contexts.
  *
- * It injects native-to-js objects in into each v8 context in the render processes
- * and sets up and owns the `CefMessageRouterRendererSide` of the [message router]
- * (https://bitbucket.org/chromiumembedded/cef/src/master/include/wrapper/cef_message_router.h).
+ * ZMQ is used both for publishing changes in the native state to the v8
+ * contexts in the render processes, and for RPC from the the render processes
+ * to mutate state managed by the browser process.
  *
- * It sets up and owns the `CefMessageRouterBrowserSide` message router for
- * render processes, handles mapping event subscriptions in js to native event
- * subscriptions, and dispatches native events into js for those subcriptions.
- *
- * The vr event loop runs in its own thread, but events are be dispatched on
- * the main UI thread.
+ * The vr event loop runs in its own thread, but events are always dispatched
+ * on the main UI thread.
  */
 
 namespace ovrly{ namespace js{

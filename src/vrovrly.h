@@ -54,7 +54,7 @@ namespace ovrly { namespace vr {
       void setTransform(const mathfu::mat4 &matrix);
 
       /**
-       * Gets the overlay's positioning transform matrix
+       * Gets the overlay's current positioning transform matrix
        */
       const mathfu::mat4 getTransform();
 
@@ -75,8 +75,6 @@ namespace ovrly { namespace vr {
 
       /**
        * Renders an image file to the overlay texture
-       *
-       * TODO: Support setting bounds for rendering subsections of the image
        */
       void renderImageFile(const std::string &path);
 
@@ -102,6 +100,11 @@ namespace ovrly { namespace vr {
        *
        * This must be called before `render()` is called with a buffer of the
        * new target size.
+       *
+       * Bounds is a tuple holding a minUV and maxUV vector for specifying what
+       * portion of the target should be rendered. This is also used in cases
+       * like opengl where the bottom right of the texture is considered the
+       * start (e.g. `{{0, 1}, {1, 0}}`).
        */
       void updateTargetSize(mathfu::vec2i size, const std::tuple<mathfu::vec2, mathfu::vec2> &bounds);
 
@@ -114,6 +117,9 @@ namespace ovrly { namespace vr {
       ::vr::VROverlayHandle_t parent_{ ::vr::k_ulOverlayHandleInvalid };
   };
 
+  /**
+   * An abstraction for a VR devices position in the 3D play area
+   */
   struct DevicePose {
     DevicePose() {}
     DevicePose(::vr::TrackedDevicePose_t pose);
@@ -127,6 +133,9 @@ namespace ovrly { namespace vr {
     ::vr::ETrackingResult result{ ::vr::ETrackingResult::TrackingResult_Uninitialized };
   };
 
+  /**
+   * An abstraction for the VR API's tracked devices
+   */
   struct TrackedDevice {
     TrackedDevice() {}
     TrackedDevice(unsigned slot);

@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
   CefSettings settings;
   settings.remote_debugging_port = 8088;
   //settings.CefCommandLineArgs.Add("remote-allow-origins", "http://localhost:8080");
+  //FIXME: This path needs to be calculated in an xplat manner.
   CefString(&settings.root_cache_path) = "/home/josh/.cache/ovrly";
   settings.no_sandbox = true;
   settings.windowless_rendering_enabled = true;
